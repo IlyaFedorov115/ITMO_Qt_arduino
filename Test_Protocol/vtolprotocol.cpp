@@ -1,7 +1,7 @@
 
 #include "vtolprotocol.h"
 #include "serialmanager.h"
-#include <stdexcept>
+//#include <stdexcept>
 
 using namespace vtol_protocol;
 

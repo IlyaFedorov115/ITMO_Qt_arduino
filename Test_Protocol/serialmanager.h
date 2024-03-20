@@ -2,7 +2,10 @@
 #define SERIALMANAGER_H
 
 
-#include <cstdint>
+//#include <cstdint>
+#include <string.h>
+#include <stdint.h>
+
 class SerialPacketManager;
 
 

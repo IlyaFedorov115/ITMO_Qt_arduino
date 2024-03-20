@@ -1,7 +1,9 @@
 #ifndef VTOLPROTOCOL_H
 #define VTOLPROTOCOL_H
-#include <cstdint>
-#include <exception>
+//#include <cstdint>
+#include <string.h>
+#include <stdint.h>
+//#include <exception>
 
 /*
 try {
@@ -68,7 +70,7 @@ struct ProtocolMsg {
 };
 
 // classError parse
-
+/*
 class ParserError: public std::exception {
 
 };
@@ -88,6 +90,7 @@ public:
        return "Wrong Data len!";
     }
 };
+*/
 
 class Parser {
 public:
