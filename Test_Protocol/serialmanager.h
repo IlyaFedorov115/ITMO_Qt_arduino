@@ -28,9 +28,14 @@ struct SerialPacket {
     uint8_t _dataLength = 0;
     uint8_t buffer[MAX_DATA_SIZE];
 
+    SerialPacket() = default;
+
     size_t getFullPacketSize() {
         return sizeof(_msgType) + sizeof(_checkSum) + sizeof(_dataLength) + _dataLength;
     }
+
+    static const uint8_t MAX_PACKET_SIZE = MAX_DATA_SIZE + 3;
+
 };
 
 
@@ -68,6 +73,10 @@ public:
 
     static uint8_t crc8(uint8_t* data, size_t len);
     static uint8_t crc8Fast(uint8_t* data, size_t len);
+
+
+    // method read from uint8_t/char array to '\0'
+    // method read from uint8_t* array for num byte
 
     // or enum
     static const uint8_t CODE_NONE = 0;

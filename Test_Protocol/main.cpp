@@ -1,18 +1,23 @@
 #include <iostream>
 #include <cstring>
+#include "qdebug.h"
 #include "vtolprotocol.h"
 #include "serialmanager.h"
 
-
+#include <QSerialPort>
+#include <QTimer>
+#include <QTextStream>
+#include <QCoreApplication>
+#include "serialportmanager.h"
 using namespace std;
 
 
 
-int main()
+int main(int argc, char *argv[])
 {
     SerialPacketManager manager;
     SerialPacket packet;
-    bool testCrc = true;
+    bool testCrc = false;
     bool testParse = false;
     if (testCrc)
     {
@@ -66,9 +71,27 @@ int main()
         }
 
 
-
     }
+    /*
+        QSerialPort serialPort;
+        serialPort.setPortName("COM3");
+        serialPort.setBaudRate(QSerialPort::Baud9600);
+        QTextStream standardOutput(stdout);
+*/
 
 
-    return 0;
+        QCoreApplication a(argc, argv);
+        QSerialPort serialPort;
+        serialPort.setPortName("COM3");
+        serialPort.setBaudRate(QSerialPort::Baud115200);
+        QTextStream standardOutput(stdout);
+        if (!serialPort.open(QIODevice::ReadOnly)) {
+                standardOutput << QObject::tr("Failed to open port %1, error: %2")
+                               << "\n";
+                return 1;
+            }
+        SerialPortManager serialPortReader(&serialPort);
+        std::cout << "Start" << std::endl;
+
+        return a.exec();
 }

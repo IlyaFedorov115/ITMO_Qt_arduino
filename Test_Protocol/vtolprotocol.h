@@ -115,6 +115,7 @@ public:
     */
     static PARSE_CODE parse(const SerialPacket& packet, ProtocolMsg& msg);
     static SerialPacket parse2Serial(ProtocolMsg& msg);
+    static void parse2Serial(SerialPacket* packet, ProtocolMsg* msg);
 };
 
 }

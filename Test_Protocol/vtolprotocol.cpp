@@ -132,3 +132,10 @@ SerialPacket Parser::parse2Serial(ProtocolMsg &msg)
     memcpy(res.buffer, msg.data, res._dataLength);
     return res;
 }
+
+void Parser::parse2Serial(SerialPacket *packet, ProtocolMsg *msg)
+{
+    packet->_msgType = (uint8_t)msg->type;
+    packet->_dataLength = msg->lenData * sizeof(ProtocolMsg::FloatType);
+    memcpy(packet->buffer, msg->data, packet->_dataLength);
+}
