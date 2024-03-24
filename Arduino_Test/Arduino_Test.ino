@@ -15,7 +15,7 @@
 #define USE_AUTO_MPU_CALIBRATION 0
 
 #define WIRE_HAS_TIMEOUT 1
-#define LOGGING_MSG_FLAG 1 // loging for Mpu init and other hardware
+#define LOGGING_MSG_FLAG 0 // loging for Mpu init and other hardware
 
 /* ------------- CONSTANTS ------------ */
 const int MPU_addr = 0x68; // адрес датчика
@@ -76,36 +76,13 @@ SerialPacket* packetSend = new SerialPacket();
 
 SerialPacketManager* serialManager = new SerialPacketManager();
 
-uint8_t* packetSendBuffer = new uint8_t[SerialPacket::MAX_PACKET_SIZE];
-uint8_t* packetReceiveBuffer = new uint8_t[SerialPacket::MAX_PACKET_SIZE];
+uint8_t* packetBuffer = new uint8_t[SerialPacket::MAX_PACKET_SIZE];
 
 
 
-int mpu_initialization() { 
-  log_2_serial("Initializing I2C devices...");
-  mpuObject.initialize();
-  Serial.println("Success init");
-  log_2_serial("Testing device connections...");
-  bool code = mpuObject.testConnection();
-  log_2_serial(code ? "MPU6050 connection OK" : "MPU6050 connection FAIL"); // состояние соединения
-  
-  if (!code) return -1;
-  log_2_serial("Initializing DMP...");
-  int8_t devStatus = mpuObject.dmpInitialize();
-  if (devStatus == 0) {
-    log_2_serial("DMP ready!...");
-    mpuObject.setDMPEnabled(true);
-  } else {
-    log_2_serial("DMP Initialization failed code: ");
-    log_2_serial(devStatus);
-    return -1;
-  }
-  return 1;
-}
 
 
 void setup() {
-
   /* ========= Init variables ======== */
 
   Serial.begin(serialFreq); //while (!Serial);
@@ -135,14 +112,7 @@ void setup() {
 
   /* =======     Init MPU     ======= */
   mpu_initialization1();
-  int code = 1;
-  if(code < 0) {
-    DMP_DATA::DMP_READY = false;
-    log_2_serial("Problem with init mpu. Next commands will be ignored.");
-  } else {
-    DMP_DATA::DMP_READY = true;
-    log_2_serial("Success init mpu!!");
-  }
+
   DMP_DATA::PACKET_SIZE = mpuObject.dmpGetFIFOPacketSize();
 
   #if(USE_AUTO_MPU_CALIBRATION == 1)
@@ -176,8 +146,8 @@ void loop() {
         vtol_protocol::Parser::parse2Serial(packetSend, msgSend);
         packetSend->_checkSum = SerialPacketManager::crc8((uint8_t*)packetSend+1, packetSend->getFullPacketSize());//serialManager->calcCheckSum(packetSend);
         //serialManager->calcCheckSum(packetSend);
-        memcpy(packetSendBuffer, (void*)packetSend, packetSend->getFullPacketSize());
-        Serial.write(packetSendBuffer, packetSend->getFullPacketSize());
+        memcpy(packetBuffer, (void*)packetSend, packetSend->getFullPacketSize());
+        Serial.write(packetBuffer, packetSend->getFullPacketSize());
         //SerialPacket packet =  vtol_protocol::Parser::parse2Serial(msgSend);
         //packet._checkSum = serialManager.calcCheckSum(packet);
         //memcpy(&packetSendBuffer[0], (void*)&packet, packet.getFullPacketSize());
@@ -272,26 +242,54 @@ void mpu_initialization2() {
 }
 
 void mpu_initialization1() { 
- // Serial.println("Before init");
-  //log_2_serial("Initializing I2C devices...");
+  
   mpuObject.initialize();
- // Serial.println("After init");
-  //log_2_serial(mpuObject.testConnection() ? "MPU6050 connection OK" : "MPU6050 connection FAIL"); // состояние соединения
   bool res = mpuObject.testConnection();
-  if (res) {
-   // Serial.println("MPU6050 connection OK");
+
+  if(!res) {
+    DMP_DATA::DMP_READY = false;
+    log_2_serial("MPU6050 connect FAIL");
   } else {
-   //  Serial.println("MPU6050 connection FAIL");
+    DMP_DATA::DMP_READY = true;
+    log_2_serial("MPU6050 connect OK");
   }
- // log_2_serial("Initializing DMP...");
+
   int8_t devStatus = mpuObject.dmpInitialize();
   if (devStatus == 0) {
     log_2_serial("DMP ready!...");
     mpuObject.setDMPEnabled(true);
   } else {
-   // log_2_serial("DMP Initialization failed code: ");
-   // log_2_serial(devStatus);
+    log_2_serial("DMP failed code: ");
+    log_2_serial(devStatus);
   }
 }
 
+
+int mpu_initialization() { 
+  mpuObject.initialize();
+  bool code = mpuObject.testConnection();
+  
+  if(!code) {
+    DMP_DATA::DMP_READY = false;
+    #if
+    log_2_serial("MPU6050 connection FAIL. Next commands will be ignored. ");
+    return -1;
+  } else {
+    DMP_DATA::DMP_READY = true;
+    log_2_serial("MPU6050 connection OK");
+  }
+
+  log_2_serial("Initializing DMP...");
+  int8_t devStatus = mpuObject.dmpInitialize();
+  if (devStatus == 0) {
+    log_2_serial("DMP ready!...");
+    mpuObject.setDMPEnabled(true);
+  } else {
+    log_2_serial("DMP Initialization failed code: ");
+    log_2_serial(devStatus);
+    return -1;
+  }
+
+  return 1;
+}
 
