@@ -22,7 +22,7 @@ const int MPU_addr = 0x68; // адрес датчика
 const long serialFreq = 115200;
 const int wireTimeout = 3000;
 bool IS_SET_START = true;
-const int timeoutRead = 1;  // ms
+const int timeoutRead = 5;  // ms
 
 MPU6050 mpuObject(MPU_addr);
 int16_t offsetMPU[6] = {-1372,	857,	887,	3,	-40,	-52};//{-3761, 1339, -3009, 45, -54, 44}; // my 2
@@ -136,12 +136,31 @@ void setup() {
   msgSend->lenData = vtol_protocol::MsgProps::getDataLen(msgSend->type);
   //serialManager->setCheckSumMethod(SerialPacketManager::crc8);
 }
-
+int ch1;
 void loop() {
   /* Failed connect to IMU */
   if (!DMP_DATA::DMP_READY) return;
 
+  /* Get and parsing */
+  if (Serial.available() > 0)
+  {
+    Serial.print("Get ");
+    //int c = Serial.readBytes((char*)&ch1, sizeof(ch1));
+    int c1 = Serial.readBytes(packetBuffer, 3);
+    Serial.print(c1); Serial.print(" ");
+    int c = Serial.readBytes(packetBuffer+3, 30);
+    Serial.println(c);
+    //Serial.println(ch1, HEX);
 
+
+    //Serial.print("Get ");
+    //Serial.print(Serial.available());
+    //_parsePacket(packetReceive, msgReceive, packetBuffer);
+    //Serial.readBytes(packetBuffer, Serial.available());
+    //Serial.println(Serial.available());
+      // soon - read and change current state. Asyns wait for all packet
+      // now - read all in one time, else - discard packet
+  }
 
   /* Not set to start running */
   if (!IS_SET_START) return;
@@ -150,20 +169,6 @@ void loop() {
   {
     if (millis() - TIMER_INTER::last_time > TIMER_INTER::time_step)
     {
-        /* Get and parsing */
-  if (Serial.available() > 0)
-  {
-    Serial.print("Get ");
-    Serial.println(Serial.available());
-    //_parsePacket(packetReceive, msgReceive, packetBuffer);
-    Serial.readBytes(packetBuffer, Serial.available());
-      // soon - read and change current state. Asyns wait for all packet
-      // now - read all in one time, else - discard packet
-  }
-
-
-
-
       if (mpuObject.dmpGetCurrentFIFOPacket(DMP_DATA::fifoBuffer)) {
         prepareAngle();
         vtol_protocol::Parser::parse2Serial(packetSend, msgSend);
