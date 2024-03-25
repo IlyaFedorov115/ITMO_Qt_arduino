@@ -21,7 +21,7 @@
 const int MPU_addr = 0x68; // адрес датчика
 const long serialFreq = 115200;
 const int wireTimeout = 3000;
-bool IS_SET_START = true;
+bool IS_SET_START = false;
 const int timeoutRead = 5;  // ms
 
 MPU6050 mpuObject(MPU_addr);
@@ -136,39 +136,59 @@ void setup() {
   msgSend->lenData = vtol_protocol::MsgProps::getDataLen(msgSend->type);
   //serialManager->setCheckSumMethod(SerialPacketManager::crc8);
 }
-int ch1;
+
+struct SerialPacket1 {
+    uint8_t _checkSum;
+    uint8_t _msgType;
+    uint8_t _dataLength = 0;
+    uint8_t buffer[250];
+};
+
+SerialPacket packet;
 void loop() {
   /* Failed connect to IMU */
+
   if (!DMP_DATA::DMP_READY) return;
 
   /* Get and parsing */
   if (Serial.available() > 0)
   {
-    Serial.print("Get ");
-    //int c = Serial.readBytes((char*)&ch1, sizeof(ch1));
-    int c1 = Serial.readBytes(packetBuffer, 3);
-    Serial.print(c1); Serial.print(" ");
-    int c = Serial.readBytes(packetBuffer+3, 30);
-    Serial.println(c);
-    //Serial.println(ch1, HEX);
+    _parsePacket(packetReceive, msgReceive, packetBuffer);
+    /*
+     int num_read_byte = Serial.readBytes((char*)packetBuffer, 3);
+     if (num_read_byte < 3) {
+    // bad packet
+      goto exit;
+     }
+     packet._checkSum = packetBuffer[0];
+     packet._msgType = packetBuffer[1];
+     packet._dataLength = packetBuffer[2];
 
+     num_read_byte = Serial.readBytes((char*)packetBuffer, packet._dataLength); // packetBuffer
+     if (num_read_byte < packet._dataLength) {
+      // bad packet
+      goto exit;
+     }
+     */
+      //packet.buffer[i] = packetBuffer[i];
 
-    //Serial.print("Get ");
-    //Serial.print(Serial.available());
+     //(&packet)->_checkSum = packetBuffer[0];
+     //packetReceive->_msgType = packetBuffer[0];
+     //packetReceive->_dataLength = packetBuffer[0];
+
+     //memcpy((uint8_t*)&packet, packetBuffer, 3);
+     //memcpy(&packet, packetBuffer, 3);
     //_parsePacket(packetReceive, msgReceive, packetBuffer);
-    //Serial.readBytes(packetBuffer, Serial.available());
-    //Serial.println(Serial.available());
-      // soon - read and change current state. Asyns wait for all packet
-      // now - read all in one time, else - discard packet
   }
 
+  //exit:
   /* Not set to start running */
-  if (!IS_SET_START) return;
-
+  //if (!IS_SET_START) return;
   if(!USE_IMU_INTERRUPT)
   {
     if (millis() - TIMER_INTER::last_time > TIMER_INTER::time_step)
     {
+      Serial.println(TIMER_INTER::time_step);
       if (mpuObject.dmpGetCurrentFIFOPacket(DMP_DATA::fifoBuffer)) {
         prepareAngle();
         vtol_protocol::Parser::parse2Serial(packetSend, msgSend);
@@ -196,45 +216,23 @@ void loop() {
 // use struct without buffer
 void _parsePacket(SerialPacket* packetReceive, vtol_protocol::ProtocolMsg* msgReceive, uint8_t* packetBuffer)
 {
-  // too small packet, count that bad
-  Serial.println(Serial.available());
-  if (Serial.available() < 3) {
-    Serial.readBytes(packetBuffer, Serial.available());
-    return;
-    // ++
-  }
-  packetReceive->_checkSum = Serial.read();
-  packetReceive->_msgType = Serial.read();
-  packetReceive->_dataLength = Serial.read();
-
-  // !! Maybe situation, when Qt send packet with pwm and 
-  // user click "stop" button -> maybe 2 packets in one time
-  if (packetReceive->_dataLength != Serial.available()) {
+  int num_read_byte = Serial.readBytes((char*)packetReceive, 3);
+  if (num_read_byte < 3) {
     // bad packet
-    Serial.readBytes(packetBuffer, Serial.available());
     return;
   }
-
-  if (packetReceive->_dataLength != 0) {
-      int read = Serial.readBytes(packetBuffer, packetReceive->_dataLength);
-      if (read < packetReceive->_dataLength) {
-        // timeout full packet
-        return;
-      }
-      memcpy(packetReceive->buffer, packetBuffer, packetReceive->_dataLength);
+  
+  num_read_byte = Serial.readBytes((char*)packetReceive->buffer, packetReceive->_dataLength); // packetBuffer
+  if (num_read_byte < packetReceive->_dataLength) {
+    // bad packet
+    return;
   }
 
   if (!serialManager->isValidPacket(*packetReceive)) {
     // bad packet
     return;
   }
-  /*
-  if (packetReceive->_dataLength < Serial.available()) {
-    Serial.readBytes(packetBuffer, Serial.available());
-    return;
-  }
-  Serial.readBytes(packetReceive->buffer, Serial.available());
-  */
+
   _parseMsg(packetReceive, msgReceive);  
 }
 
