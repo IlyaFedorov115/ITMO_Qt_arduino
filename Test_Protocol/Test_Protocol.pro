@@ -1,5 +1,5 @@
 QT -= gui
-
+QT += serialport
 CONFIG += c++17 console
 CONFIG -= app_bundle
 
@@ -10,6 +10,7 @@ CONFIG -= app_bundle
 SOURCES += \
         main.cpp \
         serialmanager.cpp \
+        serialportmanager.cpp \
         vtolprotocol.cpp
 
 # Default rules for deployment.
@@ -19,4 +20,5 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 HEADERS += \
     serialmanager.h \
+    serialportmanager.h \
     vtolprotocol.h

@@ -21,6 +21,8 @@
 const int MPU_addr = 0x68; // адрес датчика
 const long serialFreq = 115200;
 const int wireTimeout = 3000;
+bool IS_SET_START = true;
+const int timeoutRead = 1;  // ms
 
 MPU6050 mpuObject(MPU_addr);
 int16_t offsetMPU[6] = {-1372,	857,	887,	3,	-40,	-52};//{-3761, 1339, -3009, 45, -54, 44}; // my 2
@@ -86,6 +88,7 @@ void setup() {
   /* ========= Init variables ======== */
 
   Serial.begin(serialFreq); //while (!Serial);
+  Serial.setTimeout(timeoutRead);
   /* =======     Init BLDC     ======= */
   #if(USE_SERVO_FLAG == 1)
   SERVO_DATA::servoAPI = new BLDC_API(SERVO_DATA::ESC_PIN, 
@@ -136,18 +139,38 @@ void setup() {
 
 void loop() {
   /* Failed connect to IMU */
-  if (!DMP_DATA::DMP_READY) return; 
+  if (!DMP_DATA::DMP_READY) return;
+
+
+
+  /* Not set to start running */
+  if (!IS_SET_START) return;
+
   if(!USE_IMU_INTERRUPT)
   {
     if (millis() - TIMER_INTER::last_time > TIMER_INTER::time_step)
     {
+        /* Get and parsing */
+  if (Serial.available() > 0)
+  {
+    Serial.print("Get ");
+    Serial.println(Serial.available());
+    //_parsePacket(packetReceive, msgReceive, packetBuffer);
+    Serial.readBytes(packetBuffer, Serial.available());
+      // soon - read and change current state. Asyns wait for all packet
+      // now - read all in one time, else - discard packet
+  }
+
+
+
+
       if (mpuObject.dmpGetCurrentFIFOPacket(DMP_DATA::fifoBuffer)) {
         prepareAngle();
         vtol_protocol::Parser::parse2Serial(packetSend, msgSend);
         packetSend->_checkSum = SerialPacketManager::crc8((uint8_t*)packetSend+1, packetSend->getFullPacketSize());//serialManager->calcCheckSum(packetSend);
         //serialManager->calcCheckSum(packetSend);
         memcpy(packetBuffer, (void*)packetSend, packetSend->getFullPacketSize());
-        Serial.write(packetBuffer, packetSend->getFullPacketSize());
+ //       Serial.write(packetBuffer, packetSend->getFullPacketSize());
         //SerialPacket packet =  vtol_protocol::Parser::parse2Serial(msgSend);
         //packet._checkSum = serialManager.calcCheckSum(packet);
         //memcpy(&packetSendBuffer[0], (void*)&packet, packet.getFullPacketSize());
@@ -162,6 +185,81 @@ void loop() {
     }
 
   }
+}
+
+// Make read by state: start and end symbol
+// use struct without buffer
+void _parsePacket(SerialPacket* packetReceive, vtol_protocol::ProtocolMsg* msgReceive, uint8_t* packetBuffer)
+{
+  // too small packet, count that bad
+  Serial.println(Serial.available());
+  if (Serial.available() < 3) {
+    Serial.readBytes(packetBuffer, Serial.available());
+    return;
+    // ++
+  }
+  packetReceive->_checkSum = Serial.read();
+  packetReceive->_msgType = Serial.read();
+  packetReceive->_dataLength = Serial.read();
+
+  // !! Maybe situation, when Qt send packet with pwm and 
+  // user click "stop" button -> maybe 2 packets in one time
+  if (packetReceive->_dataLength != Serial.available()) {
+    // bad packet
+    Serial.readBytes(packetBuffer, Serial.available());
+    return;
+  }
+
+  if (packetReceive->_dataLength != 0) {
+      int read = Serial.readBytes(packetBuffer, packetReceive->_dataLength);
+      if (read < packetReceive->_dataLength) {
+        // timeout full packet
+        return;
+      }
+      memcpy(packetReceive->buffer, packetBuffer, packetReceive->_dataLength);
+  }
+
+  if (!serialManager->isValidPacket(*packetReceive)) {
+    // bad packet
+    return;
+  }
+  /*
+  if (packetReceive->_dataLength < Serial.available()) {
+    Serial.readBytes(packetBuffer, Serial.available());
+    return;
+  }
+  Serial.readBytes(packetReceive->buffer, Serial.available());
+  */
+  _parseMsg(packetReceive, msgReceive);  
+}
+
+void _parseMsg(SerialPacket* packetReceive, vtol_protocol::ProtocolMsg* msgReceive)
+{
+  vtol_protocol::Parser::PARSE_CODE code = vtol_protocol::Parser::parse(packetReceive, msgReceive);
+
+  if (code == vtol_protocol::Parser::PARSE_CODE::WRONG_TYPE){
+    // bad packet
+    return;
+  }
+  if (code == vtol_protocol::Parser::PARSE_CODE::WRONG_DATA_LEN) {
+    // bad packet
+    return;
+  }
+
+  if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::PWM_SIGNAL) {
+    // Shield maybe
+    if (msgReceive->data[0].number > 1470) msgReceive->data[0].number = 1470;
+    SERVO_DATA::servoAPI->writeMicroseconds((int)msgReceive->data[0].number);
+  } else if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::SET_BY_TIMER) {
+    TIMER_INTER::time_step = (long)msgReceive->data[0].number;
+  } else if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::START_SIM) {
+    IS_SET_START = true;
+  } else if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::STOP_SIM) {
+    IS_SET_START = false;
+  } else {
+    return;
+  }
+
 }
 
 
@@ -221,75 +319,27 @@ void _prepareRawAngle()
 
 
 
-
-void mpu_initialization2() { 
-  log_2_serial("Initializing I2C devices...");
-  mpuObject.initialize();
-  Serial.println("Success init");
-  log_2_serial("Testing device connections...");
-  log_2_serial(mpuObject.testConnection() ? "MPU6050 connection OK" : "MPU6050 connection FAIL"); // состояние соединения
-  
-  log_2_serial("Initializing DMP...");
-  int8_t devStatus = mpuObject.dmpInitialize();
-  if (devStatus == 0) {
-    log_2_serial("DMP ready!...");
-    mpuObject.setDMPEnabled(true);
-  } else {
-    log_2_serial("DMP Initialization failed code: ");
-    log_2_serial(devStatus);
-  }
-  Serial.println("End init");
-}
-
 void mpu_initialization1() { 
   
   mpuObject.initialize();
   bool res = mpuObject.testConnection();
 
-  if(!res) {
-    DMP_DATA::DMP_READY = false;
-    log_2_serial("MPU6050 connect FAIL");
-  } else {
-    DMP_DATA::DMP_READY = true;
-    log_2_serial("MPU6050 connect OK");
-  }
+  DMP_DATA::DMP_READY = (res) ? true : false;
+  #if(LOGGING_MSG_FLAG == 1)
+  (res) ? log_2_serial("MPU6050 connect OK") : log_2_serial("MPU6050 connect FAIL");
+  #endif
 
   int8_t devStatus = mpuObject.dmpInitialize();
-  if (devStatus == 0) {
-    log_2_serial("DMP ready!...");
-    mpuObject.setDMPEnabled(true);
-  } else {
+
+  if (devStatus != 0) {
+    #if(LOGGING_MSG_FLAG == 1)
     log_2_serial("DMP failed code: ");
     log_2_serial(devStatus);
+    #endif
+    return;
   }
-}
-
-
-int mpu_initialization() { 
-  mpuObject.initialize();
-  bool code = mpuObject.testConnection();
   
-  if(!code) {
-    DMP_DATA::DMP_READY = false;
-    #if
-    log_2_serial("MPU6050 connection FAIL. Next commands will be ignored. ");
-    return -1;
-  } else {
-    DMP_DATA::DMP_READY = true;
-    log_2_serial("MPU6050 connection OK");
-  }
+  mpuObject.setDMPEnabled(true);
 
-  log_2_serial("Initializing DMP...");
-  int8_t devStatus = mpuObject.dmpInitialize();
-  if (devStatus == 0) {
-    log_2_serial("DMP ready!...");
-    mpuObject.setDMPEnabled(true);
-  } else {
-    log_2_serial("DMP Initialization failed code: ");
-    log_2_serial(devStatus);
-    return -1;
-  }
-
-  return 1;
 }
 

@@ -23,6 +23,53 @@ SerialPortManager::~SerialPortManager()
     _close();
 }
 
+void SerialPortManager::sendTimerStepHW(unsigned time_step)
+{
+    vtol_protocol::ProtocolMsg msg;
+    msg.type = vtol_protocol::MsgProps::MSG_TYPE::SET_BY_TIMER;
+    msg.lenData = vtol_protocol::MsgProps::getDataLen(msg.type);
+    msg.data[0].number = time_step;
+
+    auto packet = vtol_protocol::Parser::parse2Serial(msg);
+    m_serialPort->write((char*)&packet, packet.getFullPacketSize());
+    m_serialPort->flush();
+}
+
+void SerialPortManager::sendPwmSignal(unsigned pwm)
+{
+    if (pwm < 1200 || pwm > 2000) qDebug() << "Pwm\n";
+    vtol_protocol::ProtocolMsg msg;
+    msg.type = vtol_protocol::MsgProps::MSG_TYPE::PWM_SIGNAL;
+    msg.lenData = vtol_protocol::MsgProps::getDataLen(msg.type);
+    msg.data[0].number = pwm;
+
+    auto packet = vtol_protocol::Parser::parse2Serial(msg);
+    m_serialPort->write((char*)&packet, packet.getFullPacketSize());
+    m_serialPort->flush();
+}
+
+void SerialPortManager::sendStartSim()
+{
+    vtol_protocol::ProtocolMsg msg;
+    msg.type = vtol_protocol::MsgProps::MSG_TYPE::START_SIM;
+    msg.lenData = vtol_protocol::MsgProps::getDataLen(msg.type);
+
+    auto packet = vtol_protocol::Parser::parse2Serial(msg);
+    m_serialPort->write((char*)&packet, packet.getFullPacketSize());
+    m_serialPort->flush();
+}
+
+void SerialPortManager::sendStopSim()
+{
+    vtol_protocol::ProtocolMsg msg;
+    msg.type = vtol_protocol::MsgProps::MSG_TYPE::STOP_SIM;
+    msg.lenData = vtol_protocol::MsgProps::getDataLen(msg.type);
+
+    auto packet = vtol_protocol::Parser::parse2Serial(msg);
+    m_serialPort->write((char*)&packet, packet.getFullPacketSize());
+    m_serialPort->flush();
+}
+
 void SerialPortManager::handleReadyRead()
 {
     //m_readData.append(m_serialPort->readAll());
@@ -64,6 +111,7 @@ void SerialPortManager::handleError(QSerialPort::SerialPortError serialPortError
 
 void SerialPortManager::_close()
 {
+    this->sendStopSim();
     m_serialPort->close();
 }
 

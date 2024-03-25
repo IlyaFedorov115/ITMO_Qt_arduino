@@ -43,8 +43,6 @@ class SerialPacketManager {
 private:
     // and method to send copy of struct
 
-    SerialPacket _packetSend;
-    SerialPacket _packetReceive;
 
     uint8_t (*_ckeckSumMethod)(uint8_t*, size_t);
     SerialPacketDelegate** _delegates;

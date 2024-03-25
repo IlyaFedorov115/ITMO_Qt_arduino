@@ -124,6 +124,11 @@ Parser::PARSE_CODE Parser::parse(const SerialPacket& packet, ProtocolMsg& msg)
     return PARSE_CODE::SUCCESS;
 }
 
+Parser::PARSE_CODE Parser::parse(const SerialPacket *packet, ProtocolMsg *msg)
+{
+    return parse(*packet, *msg);
+}
+
 SerialPacket Parser::parse2Serial(ProtocolMsg &msg)
 {
     SerialPacket res;

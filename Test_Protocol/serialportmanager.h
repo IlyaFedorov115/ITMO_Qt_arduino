@@ -13,6 +13,10 @@ class SerialPortManager : public QObject
 public:
     explicit SerialPortManager(QSerialPort *serialPort, QObject *parent = nullptr);
     ~SerialPortManager();
+    void sendTimerStepHW(unsigned time_step = 100);
+    void sendPwmSignal(unsigned pwm);
+    void sendStartSim();
+    void sendStopSim();
 
 private slots:
     void handleReadyRead();

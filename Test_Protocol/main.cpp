@@ -8,6 +8,7 @@
 #include <QTimer>
 #include <QTextStream>
 #include <QCoreApplication>
+#include <QThread>
 #include "serialportmanager.h"
 using namespace std;
 
@@ -85,13 +86,19 @@ int main(int argc, char *argv[])
         serialPort.setPortName("COM3");
         serialPort.setBaudRate(QSerialPort::Baud115200);
         QTextStream standardOutput(stdout);
-        if (!serialPort.open(QIODevice::ReadOnly)) {
+        if (!serialPort.open(QIODevice::ReadWrite)) {
                 standardOutput << QObject::tr("Failed to open port %1, error: %2")
                                << "\n";
                 return 1;
             }
         SerialPortManager serialPortReader(&serialPort);
         std::cout << "Start" << std::endl;
+        std::cout << "Set dt in ms" << std::endl;
+        serialPortReader.sendTimerStepHW(1000);
+        QThread::msleep(2000);
+        serialPortReader.sendStartSim();
+
+
 
         return a.exec();
 }
