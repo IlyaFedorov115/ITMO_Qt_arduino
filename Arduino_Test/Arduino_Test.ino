@@ -200,15 +200,16 @@ void loop() {
         //if (msgReceive->data[0].number > 1470) msgReceive->data[0].number = 1470;
         //SERVO_DATA::servoAPI->writeMicroseconds((int)msgReceive->data[0].number);
       } else if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::SET_BY_TIMER) {
-        IS_SET_START = true;
+        //IS_SET_START = true;
         //setStart();
         //TIMER_INTER::time_step = 2000;
-        TIMER_INTER::time_step = (long)msgReceive->data[0].number;
+        //TIMER_INTER::time_step = (long)msgReceive->data[0].number;
         //IS_SET_START = true;
       } else if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::START_SIM) {
-        //IS_SET_START = true;
+        IS_SET_START = true;
+        //TIMER_INTER::time_step = 2000;
       } else if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::STOP_SIM) {
-        //IS_SET_START = false;
+        IS_SET_START = false;
       } else {
         //IS_SET_START = true;
       }

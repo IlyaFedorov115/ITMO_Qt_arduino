@@ -94,13 +94,16 @@ int main(int argc, char *argv[])
         SerialPortManager serialPortReader(&serialPort);
 
         std::cout << "Set dt in ms" << std::endl;
-        serialPortReader.sendTimerStepHW(3000);
+        //serialPortReader.sendTimerStepHW(3000);
         QThread::msleep(2000);
         //return 1;
         std::cout << "Start" << std::endl;
-        //serialPortReader.sendStartSim();
+        serialPortReader.sendStartSim();
 
+        QTimer::singleShot(3000, nullptr, [&serialPortReader](){serialPortReader.sendStopSim();});
 
-
+        //QThread::msleep(5000);
+       // serialPortReader.sendStartSim();
+        QTimer::singleShot(6000, nullptr, [&serialPortReader](){serialPortReader.sendStartSim();});
         return a.exec();
 }

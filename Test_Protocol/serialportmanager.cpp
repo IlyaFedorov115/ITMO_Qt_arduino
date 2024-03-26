@@ -57,6 +57,7 @@ void SerialPortManager::sendStartSim()
     msg.lenData = vtol_protocol::MsgProps::getDataLen(msg.type);
 
     auto packet = vtol_protocol::Parser::parse2Serial(msg);
+    packet._checkSum = m_packetManager.calcCheckSum(packet);
     m_serialPort->write((char*)&packet, packet.getFullPacketSize());
     m_serialPort->flush();
 }
@@ -68,6 +69,7 @@ void SerialPortManager::sendStopSim()
     msg.lenData = vtol_protocol::MsgProps::getDataLen(msg.type);
 
     auto packet = vtol_protocol::Parser::parse2Serial(msg);
+    packet._checkSum = m_packetManager.calcCheckSum(packet);
     m_serialPort->write((char*)&packet, packet.getFullPacketSize());
     m_serialPort->flush();
 }
