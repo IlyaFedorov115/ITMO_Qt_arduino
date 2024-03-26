@@ -74,7 +74,7 @@ FormatAngle CURR_FORMAT_ANGLE = FormatAngle::QUARTERNION_ANGLE;
 vtol_protocol::ProtocolMsg* msgReceive = new vtol_protocol::ProtocolMsg();
 vtol_protocol::ProtocolMsg* msgSend = new vtol_protocol::ProtocolMsg();
 SerialPacket* packetReceive = new SerialPacket();
-SerialPacket* packetSend = new SerialPacket();
+//SerialPacket* packetSend = new SerialPacket();
 
 SerialPacketManager* serialManager = new SerialPacketManager();
 
@@ -137,39 +137,84 @@ void setup() {
   //serialManager->setCheckSumMethod(SerialPacketManager::crc8);
 }
 
-struct SerialPacket1 {
-    uint8_t _checkSum;
-    uint8_t _msgType;
-    uint8_t _dataLength = 0;
-    uint8_t buffer[250];
-};
+bool valid_packet = true;
+bool get_packet = false;
+bool start_new = false;
+//SerialPacket packet;
 
-SerialPacket packet;
+void setStart(){
+  IS_SET_START = true;
+}
+
+
 void loop() {
   /* Failed connect to IMU */
-
   if (!DMP_DATA::DMP_READY) return;
 
   /* Get and parsing */
+  //IS_SET_START = true;
   if (Serial.available() > 0)
   {
-    _parsePacket(packetReceive, msgReceive, packetBuffer);
-    /*
-     int num_read_byte = Serial.readBytes((char*)packetBuffer, 3);
+    //_parsePacket(packetReceive, msgReceive, packetBuffer);
+    
+     int num_read_byte = Serial.readBytes((char*)packetReceive, 3);
+     get_packet = true;
      if (num_read_byte < 3) {
     // bad packet
       goto exit;
      }
-     packet._checkSum = packetBuffer[0];
-     packet._msgType = packetBuffer[1];
-     packet._dataLength = packetBuffer[2];
+     //IS_SET_START = true;
+     get_packet = true;
+     //memcpy((uint8_t*)packetReceive, packetBuffer, 3);
+     //packet._checkSum = packetBuffer[0];
+     //packet._msgType = packetBuffer[1];
+     //packet._dataLength = packetBuffer[2];
 
-     num_read_byte = Serial.readBytes((char*)packetBuffer, packet._dataLength); // packetBuffer
-     if (num_read_byte < packet._dataLength) {
+     num_read_byte = Serial.readBytes((char*)packetReceive->buffer, packetReceive->_dataLength); // packetBuffer
+     if (num_read_byte < packetReceive->_dataLength) {
       // bad packet
+       
       goto exit;
      }
-     */
+     
+     //int crc = SerialPacketManager::crc8(packetReceive->buffer, packetReceive->_dataLength);
+     //if (crc == packetReceive->_checkSum){
+     // IS_SET_START = true;
+     //}
+
+     if (!serialManager->isValidPacket(*packetReceive)) {
+      // bad packet
+      valid_packet = false;
+      goto exit;
+      }
+      get_packet = true;
+
+      vtol_protocol::Parser::PARSE_CODE code = vtol_protocol::Parser::parse(packetReceive, msgReceive);
+      if (code != vtol_protocol::Parser::PARSE_CODE::SUCCESS) {
+        goto exit;
+      }
+
+
+      if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::PWM_SIGNAL) {
+        // Shield maybe
+        //if (msgReceive->data[0].number > 1470) msgReceive->data[0].number = 1470;
+        //SERVO_DATA::servoAPI->writeMicroseconds((int)msgReceive->data[0].number);
+      } else if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::SET_BY_TIMER) {
+        IS_SET_START = true;
+        //setStart();
+        //TIMER_INTER::time_step = 2000;
+        TIMER_INTER::time_step = (long)msgReceive->data[0].number;
+        //IS_SET_START = true;
+      } else if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::START_SIM) {
+        //IS_SET_START = true;
+      } else if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::STOP_SIM) {
+        //IS_SET_START = false;
+      } else {
+        //IS_SET_START = true;
+      }
+
+      //IS_SET_START = true;
+     
       //packet.buffer[i] = packetBuffer[i];
 
      //(&packet)->_checkSum = packetBuffer[0];
@@ -181,20 +226,21 @@ void loop() {
     //_parsePacket(packetReceive, msgReceive, packetBuffer);
   }
 
-  //exit:
+  exit:
   /* Not set to start running */
-  //if (!IS_SET_START) return;
+  if (!IS_SET_START) return;
   if(!USE_IMU_INTERRUPT)
   {
     if (millis() - TIMER_INTER::last_time > TIMER_INTER::time_step)
     {
+      Serial.print(valid_packet); Serial.print(" "); Serial.print(get_packet); Serial.print(" start "); Serial.print(start_new);
       Serial.println(TIMER_INTER::time_step);
       if (mpuObject.dmpGetCurrentFIFOPacket(DMP_DATA::fifoBuffer)) {
-        prepareAngle();
-        vtol_protocol::Parser::parse2Serial(packetSend, msgSend);
-        packetSend->_checkSum = SerialPacketManager::crc8((uint8_t*)packetSend+1, packetSend->getFullPacketSize());//serialManager->calcCheckSum(packetSend);
+        prepareAngle(); //packedSend
+        vtol_protocol::Parser::parse2Serial(packetReceive, msgSend);
+        packetReceive->_checkSum = SerialPacketManager::crc8((uint8_t*)packetReceive+1, packetReceive->getFullPacketSize());//serialManager->calcCheckSum(packetSend);
         //serialManager->calcCheckSum(packetSend);
-        memcpy(packetBuffer, (void*)packetSend, packetSend->getFullPacketSize());
+        memcpy(packetBuffer, (void*)packetReceive, packetReceive->getFullPacketSize());
  //       Serial.write(packetBuffer, packetSend->getFullPacketSize());
         //SerialPacket packet =  vtol_protocol::Parser::parse2Serial(msgSend);
         //packet._checkSum = serialManager.calcCheckSum(packet);
@@ -206,7 +252,7 @@ void loop() {
       }
 
       TIMER_INTER::last_time = millis();
-
+      start_new = true;
     }
 
   }

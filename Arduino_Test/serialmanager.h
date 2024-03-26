@@ -19,7 +19,7 @@ public:
     // error Get
 };
 
-#define MAX_DATA_SIZE (50)
+#define MAX_DATA_SIZE (100)
 
 
 struct SerialPacket {

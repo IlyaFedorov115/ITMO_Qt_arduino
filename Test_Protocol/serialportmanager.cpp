@@ -31,8 +31,10 @@ void SerialPortManager::sendTimerStepHW(unsigned time_step)
     msg.data[0].number = time_step;
 
     auto packet = vtol_protocol::Parser::parse2Serial(msg);
+    packet._checkSum = m_packetManager.calcCheckSum(packet);
     m_serialPort->write((char*)&packet, packet.getFullPacketSize());
     m_serialPort->flush();
+    std::cout << "Send " << packet.getFullPacketSize() << " bytes!! " << (int)packet._dataLength << std::endl;
 }
 
 void SerialPortManager::sendPwmSignal(unsigned pwm)

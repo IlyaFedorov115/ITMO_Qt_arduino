@@ -1,5 +1,6 @@
 #ifndef SERIALPORTMANAGER_H
 #define SERIALPORTMANAGER_H
+#include "serialmanager.h"
 #include <QByteArray>
 #include <QSerialPort>
 #include <QTextStream>
@@ -27,6 +28,7 @@ private slots:
 
 private:
     void _close();
+    SerialPacketManager m_packetManager;
     QSerialPort *m_serialPort = nullptr;
     QByteArray m_readData;
     QTextStream m_standardOutput;

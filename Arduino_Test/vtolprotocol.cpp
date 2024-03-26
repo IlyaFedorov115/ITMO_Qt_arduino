@@ -126,7 +126,22 @@ Parser::PARSE_CODE Parser::parse(const SerialPacket& packet, ProtocolMsg& msg)
 
 Parser::PARSE_CODE Parser::parse(const SerialPacket *packet, ProtocolMsg *msg)
 {
-    return parse(*packet, *msg);
+    //return parse(*packet, *msg);
+    MsgProps::MSG_TYPE type_ = (MsgProps::MSG_TYPE)packet->_msgType;
+    int8_t len_ = MsgProps::getDataLen(type_);
+
+    if (len_ < 0) {
+        return PARSE_CODE::WRONG_TYPE;
+    }
+    if (len_*sizeof(ProtocolMsg::FloatType) != packet->_dataLength) {
+        return PARSE_CODE::WRONG_DATA_LEN;
+    }
+
+    msg->lenData = len_;
+    msg->type = type_;
+    memcpy(msg->data, packet->buffer, packet->_dataLength);
+
+    return PARSE_CODE::SUCCESS;
 }
 
 SerialPacket Parser::parse2Serial(ProtocolMsg &msg)
