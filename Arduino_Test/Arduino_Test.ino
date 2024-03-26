@@ -155,76 +155,7 @@ void loop() {
   //IS_SET_START = true;
   if (Serial.available() > 0)
   {
-    //_parsePacket(packetReceive, msgReceive, packetBuffer);
-    
-     int num_read_byte = Serial.readBytes((char*)packetReceive, 3);
-     get_packet = true;
-     if (num_read_byte < 3) {
-    // bad packet
-      goto exit;
-     }
-     //IS_SET_START = true;
-     get_packet = true;
-     //memcpy((uint8_t*)packetReceive, packetBuffer, 3);
-     //packet._checkSum = packetBuffer[0];
-     //packet._msgType = packetBuffer[1];
-     //packet._dataLength = packetBuffer[2];
-
-     num_read_byte = Serial.readBytes((char*)packetReceive->buffer, packetReceive->_dataLength); // packetBuffer
-     if (num_read_byte < packetReceive->_dataLength) {
-      // bad packet
-       
-      goto exit;
-     }
-     
-     //int crc = SerialPacketManager::crc8(packetReceive->buffer, packetReceive->_dataLength);
-     //if (crc == packetReceive->_checkSum){
-     // IS_SET_START = true;
-     //}
-
-     if (!serialManager->isValidPacket(*packetReceive)) {
-      // bad packet
-      valid_packet = false;
-      goto exit;
-      }
-      get_packet = true;
-
-      vtol_protocol::Parser::PARSE_CODE code = vtol_protocol::Parser::parse(packetReceive, msgReceive);
-      if (code != vtol_protocol::Parser::PARSE_CODE::SUCCESS) {
-        goto exit;
-      }
-
-
-      if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::PWM_SIGNAL) {
-        // Shield maybe
-        //if (msgReceive->data[0].number > 1470) msgReceive->data[0].number = 1470;
-        //SERVO_DATA::servoAPI->writeMicroseconds((int)msgReceive->data[0].number);
-      } else if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::SET_BY_TIMER) {
-        //IS_SET_START = true;
-        //setStart();
-        //TIMER_INTER::time_step = 2000;
-        //TIMER_INTER::time_step = (long)msgReceive->data[0].number;
-        //IS_SET_START = true;
-      } else if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::START_SIM) {
-        IS_SET_START = true;
-        //TIMER_INTER::time_step = 2000;
-      } else if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::STOP_SIM) {
-        IS_SET_START = false;
-      } else {
-        //IS_SET_START = true;
-      }
-
-      //IS_SET_START = true;
-     
-      //packet.buffer[i] = packetBuffer[i];
-
-     //(&packet)->_checkSum = packetBuffer[0];
-     //packetReceive->_msgType = packetBuffer[0];
-     //packetReceive->_dataLength = packetBuffer[0];
-
-     //memcpy((uint8_t*)&packet, packetBuffer, 3);
-     //memcpy(&packet, packetBuffer, 3);
-    //_parsePacket(packetReceive, msgReceive, packetBuffer);
+    parsePacket(packetReceive, msgReceive, packetBuffer);
   }
 
   exit:
@@ -259,34 +190,31 @@ void loop() {
   }
 }
 
-// Make read by state: start and end symbol
-// use struct without buffer
-void _parsePacket(SerialPacket* packetReceive, vtol_protocol::ProtocolMsg* msgReceive, uint8_t* packetBuffer)
+
+
+void parsePacket(SerialPacket* packetReceive, vtol_protocol::ProtocolMsg* msgReceive, uint8_t* packetBuffer)
 {
   int num_read_byte = Serial.readBytes((char*)packetReceive, 3);
   if (num_read_byte < 3) {
-    // bad packet
-    return;
+      // bad packet
+      return;
   }
-  
+
   num_read_byte = Serial.readBytes((char*)packetReceive->buffer, packetReceive->_dataLength); // packetBuffer
   if (num_read_byte < packetReceive->_dataLength) {
     // bad packet
     return;
   }
 
+
   if (!serialManager->isValidPacket(*packetReceive)) {
     // bad packet
     return;
   }
 
-  _parseMsg(packetReceive, msgReceive);  
-}
 
-void _parseMsg(SerialPacket* packetReceive, vtol_protocol::ProtocolMsg* msgReceive)
-{
   vtol_protocol::Parser::PARSE_CODE code = vtol_protocol::Parser::parse(packetReceive, msgReceive);
-
+  
   if (code == vtol_protocol::Parser::PARSE_CODE::WRONG_TYPE){
     // bad packet
     return;
@@ -295,6 +223,7 @@ void _parseMsg(SerialPacket* packetReceive, vtol_protocol::ProtocolMsg* msgRecei
     // bad packet
     return;
   }
+
 
   if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::PWM_SIGNAL) {
     // Shield maybe
