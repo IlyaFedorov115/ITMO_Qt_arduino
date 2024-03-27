@@ -17,17 +17,26 @@ catch( const std::invalid_argument& e ) {
 class SerialPacket;
 
 namespace vtol_protocol {
-static const uint8_t MSG_MAX_LEN = 60;
+static const uint8_t MSG_MAX_LEN = 10;
 
 /* Убрать повтор кода со switch case. */
 
 class MsgProps {
 public:
+
+    enum class ANGLE_TYPE {
+          QUART = 100,
+          RAW = 101,
+          YPR = 102,
+          EULERS = 103,
+    };
+
     enum class MSG_TYPE : uint8_t {
         PWM_SIGNAL,
         QUART_ANGLE,
         RAW_GYRO_ACCEL,
         YAW_PITCH_ROLL,
+        EULER_ANGLE,
         SET_BY_INTERRUPT,
         SET_BY_TIMER,
         START_SIM,
@@ -94,6 +103,8 @@ public:
 
 class Parser {
 public:
+
+  
 
     enum class PARSE_CODE : uint8_t {
         WRONG_TYPE = 100,

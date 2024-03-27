@@ -67,7 +67,7 @@ namespace SERVO_DATA {
   BLDC_API* servoAPI;
 }
 
-FormatAngle CURR_FORMAT_ANGLE = FormatAngle::QUARTERNION_ANGLE;
+vtol_protocol::MsgProps::ANGLE_TYPE CURR_FORMAT_ANGLE = vtol_protocol::MsgProps::ANGLE_TYPE::QUART;
 
 /* ====== Packets to get ====== */
 
@@ -158,22 +158,22 @@ void loop() {
     parsePacket(packetReceive, msgReceive, packetBuffer);
   }
 
-  exit:
   /* Not set to start running */
   if (!IS_SET_START) return;
+
   if(!USE_IMU_INTERRUPT)
   {
     if (millis() - TIMER_INTER::last_time > TIMER_INTER::time_step)
     {
-      Serial.print(valid_packet); Serial.print(" "); Serial.print(get_packet); Serial.print(" start "); Serial.print(start_new);
-      Serial.println(TIMER_INTER::time_step);
+      //Serial.print(valid_packet); Serial.print(" "); Serial.print(get_packet); Serial.print(" start "); Serial.print(start_new);
+      //Serial.println(TIMER_INTER::time_step);
       if (mpuObject.dmpGetCurrentFIFOPacket(DMP_DATA::fifoBuffer)) {
         prepareAngle(); //packedSend
         vtol_protocol::Parser::parse2Serial(packetReceive, msgSend);
         packetReceive->_checkSum = SerialPacketManager::crc8((uint8_t*)packetReceive+1, packetReceive->getFullPacketSize());//serialManager->calcCheckSum(packetSend);
         //serialManager->calcCheckSum(packetSend);
         memcpy(packetBuffer, (void*)packetReceive, packetReceive->getFullPacketSize());
- //       Serial.write(packetBuffer, packetSend->getFullPacketSize());
+        Serial.write(packetBuffer, packetReceive->getFullPacketSize());
         //SerialPacket packet =  vtol_protocol::Parser::parse2Serial(msgSend);
         //packet._checkSum = serialManager.calcCheckSum(packet);
         //memcpy(&packetSendBuffer[0], (void*)&packet, packet.getFullPacketSize());
@@ -231,11 +231,13 @@ void parsePacket(SerialPacket* packetReceive, vtol_protocol::ProtocolMsg* msgRec
     SERVO_DATA::servoAPI->writeMicroseconds((int)msgReceive->data[0].number);
   } else if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::SET_BY_TIMER) {
     TIMER_INTER::time_step = (long)msgReceive->data[0].number;
+    USE_IMU_INTERRUPT = false;
   } else if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::START_SIM) {
     IS_SET_START = true;
   } else if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::STOP_SIM) {
     IS_SET_START = false;
-  } else {
+  } else if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::SET_ANGLE_TYPE) {
+    
     return;
   }
 
@@ -246,14 +248,17 @@ void parsePacket(SerialPacket* packetReceive, vtol_protocol::ProtocolMsg* msgRec
 
 void prepareAngle() {
   switch (CURR_FORMAT_ANGLE) {
-    case FormatAngle::QUARTERNION_ANGLE:
+    case vtol_protocol::MsgProps::ANGLE_TYPE::QUART:
       _prepareQuart();
       break;
-    case FormatAngle::RAW_ACCEL_GYRO_ANGLE:
+    case vtol_protocol::MsgProps::ANGLE_TYPE::RAW:
       _prepareRawAngle();
       break;
-    case FormatAngle::YAW_PITCH_ROLL_ANGLE:
+    case vtol_protocol::MsgProps::ANGLE_TYPE::YPR:
       _prepareYawPitchRoll();
+      break;
+    case vtol_protocol::MsgProps::ANGLE_TYPE::EULERS:
+      _prepareEulerAngle();
       break;
     default:
       return;
@@ -296,7 +301,38 @@ void _prepareRawAngle()
 
 }
 
+void _prepareEulerAngle()
+{
+  mpuObject.dmpGetQuaternion(&DMP_DATA::quart, DMP_DATA::fifoBuffer);
+  mpuObject.dmpGetEuler(DMP_DATA::euler, &DMP_DATA::quart);
+  msgSend->type = vtol_protocol::MsgProps::MSG_TYPE::EULER_ANGLE;
+  msgSend->lenData = 3;
+  msgSend->data[0].number = DMP_DATA::euler[0] * 180/M_PI;
+  msgSend->data[1].number = DMP_DATA::euler[1] * 180/M_PI;
+  msgSend->data[2].number = DMP_DATA::euler[2] * 180/M_PI;
+}
 
+void _setTypeAngle(){
+  msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::SET_ANGLE_TYPE;
+  if (msgReceive->lenData != vtol_protocol::MsgProps::getDataLen(msgReceive->type)) {
+    // bad packet
+    return;
+  }
+  vtol_protocol::MsgProps::ANGLE_TYPE angleType = (vtol_protocol::MsgProps::ANGLE_TYPE)msgReceive->data[0].number;
+  
+  switch(angleType) {
+    case vtol_protocol::MsgProps::ANGLE_TYPE::QUART:
+    case vtol_protocol::MsgProps::ANGLE_TYPE::YPR:
+    case vtol_protocol::MsgProps::ANGLE_TYPE::EULERS:
+    case vtol_protocol::MsgProps::ANGLE_TYPE::RAW:
+      CURR_FORMAT_ANGLE = angleType;
+      break;
+    default:
+      // bad type
+      return;
+  }
+
+}
 
 void mpu_initialization1() { 
   

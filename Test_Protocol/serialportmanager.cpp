@@ -1,6 +1,6 @@
 #include "serialportmanager.h"
 #include "serialmanager.h"
-#include "vtolprotocol.h"
+
 #include <QDebug>
 #include <iostream>
 
@@ -23,82 +23,89 @@ SerialPortManager::~SerialPortManager()
     _close();
 }
 
-void SerialPortManager::sendTimerStepHW(unsigned time_step)
+void SerialPortManager::_sendMessage(vtol_protocol::ProtocolMsg &msg)
 {
-    vtol_protocol::ProtocolMsg msg;
-    msg.type = vtol_protocol::MsgProps::MSG_TYPE::SET_BY_TIMER;
-    msg.lenData = vtol_protocol::MsgProps::getDataLen(msg.type);
-    msg.data[0].number = time_step;
-
     auto packet = vtol_protocol::Parser::parse2Serial(msg);
     packet._checkSum = m_packetManager.calcCheckSum(packet);
     m_serialPort->write((char*)&packet, packet.getFullPacketSize());
     m_serialPort->flush();
-    std::cout << "Send " << packet.getFullPacketSize() << " bytes!! " << (int)packet._dataLength << std::endl;
+}
+
+vtol_protocol::ProtocolMsg SerialPortManager::_prepareMsg(vtol_protocol::MsgProps::MSG_TYPE type)
+{
+    //vtol_protocol::ProtocolMsg msg;
+    //msg.type = type;
+}
+
+void SerialPortManager::sendTimerStepHW(unsigned time_step)
+{
+    vtol_protocol::ProtocolMsg msg(vtol_protocol::MsgProps::MSG_TYPE::SET_BY_TIMER);
+    msg.data[0].number = time_step;
+
+    this->_sendMessage(msg);
 }
 
 void SerialPortManager::sendPwmSignal(unsigned pwm)
 {
-    if (pwm < 1200 || pwm > 2000) qDebug() << "Pwm\n";
-    vtol_protocol::ProtocolMsg msg;
-    msg.type = vtol_protocol::MsgProps::MSG_TYPE::PWM_SIGNAL;
-    msg.lenData = vtol_protocol::MsgProps::getDataLen(msg.type);
+    if (pwm < 1200 || pwm > 2000) qDebug() << "Pwm error\n";
+    vtol_protocol::ProtocolMsg msg(vtol_protocol::MsgProps::MSG_TYPE::PWM_SIGNAL);
     msg.data[0].number = pwm;
 
-    auto packet = vtol_protocol::Parser::parse2Serial(msg);
-    m_serialPort->write((char*)&packet, packet.getFullPacketSize());
-    m_serialPort->flush();
+    this->_sendMessage(msg);
 }
 
 void SerialPortManager::sendStartSim()
 {
-    vtol_protocol::ProtocolMsg msg;
-    msg.type = vtol_protocol::MsgProps::MSG_TYPE::START_SIM;
-    msg.lenData = vtol_protocol::MsgProps::getDataLen(msg.type);
+    vtol_protocol::ProtocolMsg msg(vtol_protocol::MsgProps::MSG_TYPE::START_SIM);
 
-    auto packet = vtol_protocol::Parser::parse2Serial(msg);
-    packet._checkSum = m_packetManager.calcCheckSum(packet);
-    m_serialPort->write((char*)&packet, packet.getFullPacketSize());
-    m_serialPort->flush();
+    this->_sendMessage(msg);
 }
 
 void SerialPortManager::sendStopSim()
 {
-    vtol_protocol::ProtocolMsg msg;
-    msg.type = vtol_protocol::MsgProps::MSG_TYPE::STOP_SIM;
-    msg.lenData = vtol_protocol::MsgProps::getDataLen(msg.type);
+    vtol_protocol::ProtocolMsg msg(vtol_protocol::MsgProps::MSG_TYPE::STOP_SIM);
 
-    auto packet = vtol_protocol::Parser::parse2Serial(msg);
-    packet._checkSum = m_packetManager.calcCheckSum(packet);
-    m_serialPort->write((char*)&packet, packet.getFullPacketSize());
-    m_serialPort->flush();
+    this->_sendMessage(msg);
+}
+
+void SerialPortManager::sendAngleType(vtol_protocol::MsgProps::ANGLE_TYPE type)
+{
+    vtol_protocol::ProtocolMsg msg(vtol_protocol::MsgProps::MSG_TYPE::SET_ANGLE_TYPE);
+    msg.data[0].number = static_cast<int>(type);
+    this->_sendMessage(msg);
 }
 
 void SerialPortManager::handleReadyRead()
 {
-    //m_readData.append(m_serialPort->readAll());
+    qDebug() << m_serialPort->bytesAvailable();
     QByteArray arr = m_serialPort->readAll();
     if (arr.size() < 3) {
+        // bad packet
         return;
     }
+    // read packet
     SerialPacket packet;
     packet._checkSum = arr[0];
     packet._msgType = arr[1];
     packet._dataLength = arr[2];
     memcpy(packet.buffer, arr.data()+3, packet._dataLength);
 
+    // check packet is valid
+    if(!this->m_packetManager.isValidPacket(packet)){
+        // bad packet
+        qDebug() << "Not valid packet";
+        return;
+    }
+
     vtol_protocol::ProtocolMsg msg;
     auto code = vtol_protocol::Parser::parse(packet, msg);
+    qDebug() << "Df";
     std::cout << (int)code << " " << "bytelen: " << packet._dataLength << " elementLen: " << msg.lenData << "\n";
     for (int i = 0; i < msg.lenData; i++)
         std::cout << msg.data[i].number << " ";
     std::cout << "\n";
 
     std::cout << "Get\n";
-
-    //qDebug() << m_serialPort->read(20) << "\n";
-    //if (!m_timer.isActive())
-    //    m_timer.start(5000);
 }
 
 
@@ -118,6 +125,10 @@ void SerialPortManager::_close()
     this->sendStopSim();
     m_serialPort->close();
 }
+
+
+
+
 
 
 void SerialPortManager::handleTimeout()

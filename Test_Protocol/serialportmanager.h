@@ -6,6 +6,7 @@
 #include <QTextStream>
 #include <QTimer>
 #include <QObject>
+#include "vtolprotocol.h"
 
 class SerialPortManager : public QObject
 {
@@ -18,6 +19,7 @@ public:
     void sendPwmSignal(unsigned pwm);
     void sendStartSim();
     void sendStopSim();
+    void sendAngleType(vtol_protocol::MsgProps::ANGLE_TYPE type);
 
 private slots:
     void handleReadyRead();
@@ -28,6 +30,8 @@ private slots:
 
 private:
     void _close();
+    vtol_protocol::ProtocolMsg _prepareMsg(vtol_protocol::MsgProps::MSG_TYPE type);
+    void _sendMessage(vtol_protocol::ProtocolMsg& msg);
     SerialPacketManager m_packetManager;
     QSerialPort *m_serialPort = nullptr;
     QByteArray m_readData;

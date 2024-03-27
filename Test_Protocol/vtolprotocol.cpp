@@ -144,3 +144,14 @@ void Parser::parse2Serial(SerialPacket *packet, ProtocolMsg *msg)
     packet->_dataLength = msg->lenData * sizeof(ProtocolMsg::FloatType);
     memcpy(packet->buffer, msg->data, packet->_dataLength);
 }
+
+ProtocolMsg::ProtocolMsg()
+{
+
+}
+
+ProtocolMsg::ProtocolMsg(MsgProps::MSG_TYPE type)
+    : type(type)
+{
+    this->lenData = MsgProps::getDataLen(type);
+}
