@@ -27,8 +27,18 @@ private slots:
     void handleTimeout();
     void handleError(QSerialPort::SerialPortError error);
 
+signals:
+    void sig_GetQuartAngle(float w, float x, float y, float z);
+    void sig_GetYawPitchRoll(float y, float p, float r);
+    void sig_GetRawAngle(float accelX, float accelY, float accelZ,
+                         float gyroX, float gyroY, float gyroZ);
+    void sig_GetEulerAngle(float x, float y, float z);
+
+    void sig_GetInvalidMsg(vtol_protocol::Parser::PARSE_CODE code);
+    void sig_GetInvalidPacket();
 
 private:
+    void _handleMessage(vtol_protocol::ProtocolMsg msg);
     void _close();
     vtol_protocol::ProtocolMsg _prepareMsg(vtol_protocol::MsgProps::MSG_TYPE type);
     void _sendMessage(vtol_protocol::ProtocolMsg& msg);

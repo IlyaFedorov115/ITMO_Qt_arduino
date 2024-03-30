@@ -10,6 +10,8 @@
 #include <QCoreApplication>
 #include <QThread>
 #include "serialportmanager.h"
+#include "mainprogram.h"
+
 using namespace std;
 
 
@@ -93,7 +95,7 @@ int main(int argc, char *argv[])
             }
         SerialPortManager serialPortReader(&serialPort);
 
-        std::cout << "Set dt in ms" << std::endl;
+        /*
         serialPortReader.sendTimerStepHW(400);
         QThread::msleep(2000);
         //return 1;
@@ -105,5 +107,12 @@ int main(int argc, char *argv[])
         //QThread::msleep(5000);
        // serialPortReader.sendStartSim();
         QTimer::singleShot(6000, nullptr, [&serialPortReader](){serialPortReader.sendStartSim();});
+        */
+        MainProgram prog;
+        prog.setPortManager(&serialPortReader);
+        prog.run();
+
+        QTimer::singleShot(10000, nullptr, [&prog](){prog.stop();});
+
         return a.exec();
 }

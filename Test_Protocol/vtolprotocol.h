@@ -47,6 +47,7 @@ public:
         SEND_WRONG_CH_SUMM, // in float value
         GET_WRONG_TIMEOUT,
         SEND_WRONG_TIMEOUT,  // if send get and by timeout don`t get answer -> error on GUI. Asyns + error
+        /* HARDWARE ERROR уведомить Qt */
     };
 
     static uint8_t getPwmDataLen();

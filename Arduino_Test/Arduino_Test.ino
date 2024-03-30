@@ -62,7 +62,7 @@ enum FormatAngle {
 
 namespace SERVO_DATA {
   const int ESC_PIN = 9;  //D9
-  const int ESC_MIL_MIN = 1200;
+  const int ESC_MIL_MIN = 1160;
   const int ESC_MIL_MAX = 2000;
   BLDC_API* servoAPI;
 }
@@ -96,7 +96,7 @@ void setup() {
                                       SERVO_DATA::ESC_MIL_MAX);
   #endif
   /* SERVO_DATA::servoAPI->autoCalibration(); */
-  /* SERVO_DATA::servoAPI->writeMicroseconds(SERVO_DATA::ESC_MIL_MIN); */
+  SERVO_DATA::servoAPI->writeMicroseconds(SERVO_DATA::ESC_MIL_MIN); 
 
 
 
@@ -134,6 +134,7 @@ void setup() {
   /* ======= Init packets and messages =======*/
   msgSend->type = vtol_protocol::MsgProps::MSG_TYPE::QUART_ANGLE;
   msgSend->lenData = vtol_protocol::MsgProps::getDataLen(msgSend->type);
+  IS_SET_START = false;
   //serialManager->setCheckSumMethod(SerialPacketManager::crc8);
 }
 
@@ -170,7 +171,7 @@ void loop() {
       if (mpuObject.dmpGetCurrentFIFOPacket(DMP_DATA::fifoBuffer)) {
         prepareAngle(); //packedSend
         vtol_protocol::Parser::parse2Serial(packetReceive, msgSend);
-        packetReceive->_checkSum = SerialPacketManager::crc8((uint8_t*)packetReceive+1, packetReceive->getFullPacketSize());//serialManager->calcCheckSum(packetSend);
+        packetReceive->_checkSum = SerialPacketManager::crc8((uint8_t*)packetReceive+1, packetReceive->getFullPacketSize()-1);//serialManager->calcCheckSum(packetSend);
         //serialManager->calcCheckSum(packetSend);
         memcpy(packetBuffer, (void*)packetReceive, packetReceive->getFullPacketSize());
         Serial.write(packetBuffer, packetReceive->getFullPacketSize());
@@ -236,8 +237,9 @@ void parsePacket(SerialPacket* packetReceive, vtol_protocol::ProtocolMsg* msgRec
     IS_SET_START = true;
   } else if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::STOP_SIM) {
     IS_SET_START = false;
+    SERVO_DATA::servoAPI->writeMicroseconds(SERVO_DATA::ESC_MIL_MIN);
   } else if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::SET_ANGLE_TYPE) {
-    
+    _setTypeAngle();
     return;
   }
 

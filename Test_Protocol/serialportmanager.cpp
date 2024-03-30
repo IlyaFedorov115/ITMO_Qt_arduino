@@ -47,6 +47,7 @@ void SerialPortManager::sendTimerStepHW(unsigned time_step)
 
 void SerialPortManager::sendPwmSignal(unsigned pwm)
 {
+    qDebug() << "===SEND PWM ====";
     if (pwm < 1200 || pwm > 2000) qDebug() << "Pwm error\n";
     vtol_protocol::ProtocolMsg msg(vtol_protocol::MsgProps::MSG_TYPE::PWM_SIGNAL);
     msg.data[0].number = pwm;
@@ -77,10 +78,12 @@ void SerialPortManager::sendAngleType(vtol_protocol::MsgProps::ANGLE_TYPE type)
 
 void SerialPortManager::handleReadyRead()
 {
-    qDebug() << m_serialPort->bytesAvailable();
+    // if (m_serialPort->bytesAvailable() < 3)
+    // m_serialPort->skip(m_serialPort->bytesAvailable())
+
     QByteArray arr = m_serialPort->readAll();
     if (arr.size() < 3) {
-        // bad packet
+        emit sig_GetInvalidPacket();
         return;
     }
     // read packet
@@ -93,21 +96,48 @@ void SerialPortManager::handleReadyRead()
     // check packet is valid
     if(!this->m_packetManager.isValidPacket(packet)){
         // bad packet
-        qDebug() << "Not valid packet";
+        qDebug() << "get packet with wring crc";
+        emit sig_GetInvalidPacket();
         return;
     }
 
     vtol_protocol::ProtocolMsg msg;
     auto code = vtol_protocol::Parser::parse(packet, msg);
-    qDebug() << "Df";
-    std::cout << (int)code << " " << "bytelen: " << packet._dataLength << " elementLen: " << msg.lenData << "\n";
-    for (int i = 0; i < msg.lenData; i++)
-        std::cout << msg.data[i].number << " ";
-    std::cout << "\n";
+    if (code == vtol_protocol::Parser::PARSE_CODE::SUCCESS){
+        this->_handleMessage(msg);
+    } else {
+        qDebug() << "Get invalid msg (parse)";
+        emit sig_GetInvalidMsg(code);
+    }
+    qDebug() << "Port get packet";
 
-    std::cout << "Get\n";
 }
 
+void SerialPortManager::_handleMessage(vtol_protocol::ProtocolMsg msg)
+{
+    qDebug() << "Analyse";
+    switch (msg.type) {
+    case vtol_protocol::MsgProps::MSG_TYPE::EULER_ANGLE:
+        emit sig_GetEulerAngle(msg.data[0].number, msg.data[1].number, msg.data[2].number);
+        break;
+    case vtol_protocol::MsgProps::MSG_TYPE::YAW_PITCH_ROLL:
+        emit sig_GetYawPitchRoll(msg.data[0].number, msg.data[1].number, msg.data[2].number);
+        break;
+    case vtol_protocol::MsgProps::MSG_TYPE::QUART_ANGLE:
+        qDebug() << "GET QUART";
+        emit sig_GetQuartAngle(msg.data[0].number, msg.data[1].number,
+                msg.data[2].number, msg.data[3].number);
+        break;
+    case vtol_protocol::MsgProps::MSG_TYPE::RAW_GYRO_ACCEL:
+        emit sig_GetRawAngle(msg.data[0].number, msg.data[1].number, msg.data[2].number,
+                msg.data[3].number, msg.data[4].number, msg.data[5].number);
+        break;
+    default:
+        qDebug() << "Unknown msg";
+        break;
+    }
+
+}
 
 void SerialPortManager::handleError(QSerialPort::SerialPortError serialPortError)
 {
@@ -119,6 +149,8 @@ void SerialPortManager::handleError(QSerialPort::SerialPortError serialPortError
                          << "\n";
     }
 }
+
+
 
 void SerialPortManager::_close()
 {

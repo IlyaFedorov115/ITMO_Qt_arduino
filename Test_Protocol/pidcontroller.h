@@ -1,6 +1,9 @@
 #ifndef PIDCONTROLLER_H
 #define PIDCONTROLLER_H
 
+/*
+ *  Interface controller with one method calculate dt and error
+ */
 
 class PidController
 {
