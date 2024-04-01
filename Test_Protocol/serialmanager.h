@@ -9,6 +9,7 @@
 class SerialPacketManager;
 
 
+
 class SerialPacketDelegate {
 public:
     virtual void receiveCorrectPacket(SerialPacketManager* packet) = 0;

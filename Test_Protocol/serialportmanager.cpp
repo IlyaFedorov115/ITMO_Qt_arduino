@@ -48,7 +48,7 @@ void SerialPortManager::sendTimerStepHW(unsigned time_step)
 void SerialPortManager::sendPwmSignal(unsigned pwm)
 {
     qDebug() << "===SEND PWM ====";
-    if (pwm < 1200 || pwm > 2000) qDebug() << "Pwm error\n";
+    if (pwm < 1180 || pwm > 2000) qDebug() << "Pwm error\n";
     vtol_protocol::ProtocolMsg msg(vtol_protocol::MsgProps::MSG_TYPE::PWM_SIGNAL);
     msg.data[0].number = pwm;
 
@@ -121,6 +121,9 @@ void SerialPortManager::_handleMessage(vtol_protocol::ProtocolMsg msg)
         emit sig_GetEulerAngle(msg.data[0].number, msg.data[1].number, msg.data[2].number);
         break;
     case vtol_protocol::MsgProps::MSG_TYPE::YAW_PITCH_ROLL:
+        for (IHandlerAngleReceive* h: _handlersAngle) {
+            h->handleYawPitchRoll(msg.data[0].number, msg.data[1].number, msg.data[2].number);
+        }
         emit sig_GetYawPitchRoll(msg.data[0].number, msg.data[1].number, msg.data[2].number);
         break;
     case vtol_protocol::MsgProps::MSG_TYPE::QUART_ANGLE:
@@ -148,6 +151,12 @@ void SerialPortManager::handleError(QSerialPort::SerialPortError serialPortError
                             .arg(m_serialPort->errorString())
                          << "\n";
     }
+}
+
+void SerialPortManager::setHandlerAngle(IHandlerAngleReceive *handler)
+{
+    if (handler)
+        _handlersAngle.push_back(handler);
 }
 
 

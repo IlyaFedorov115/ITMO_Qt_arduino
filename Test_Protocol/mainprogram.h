@@ -3,11 +3,17 @@
 
 #include <QObject>
 #include <QPair>
+#include <QElapsedTimer>
+#include "serialportmanager.h"
+#include "filelogger.h"
 
-class SerialPortManager;
+
+#define QT_RUNTIME_DEBUG
+
+
 class PidController;
 // maybe this public by SerialPortManager
-class MainProgram : public QObject
+class MainProgram : public QObject, public IHandlerAngleReceive
 {
     Q_OBJECT
     struct State {
@@ -27,8 +33,13 @@ class MainProgram : public QObject
 
         void setTargetAngleDegree(float target);
         void setTargetAngleRad(float target);
-        bool targetFisrt4Err = false;
-        void updateLastTime();
+
+        bool err_InRad = true;
+        bool err_targetFisrt4Err = false;
+
+        float degreeProtection = -71;
+        bool pidSendDegree = false;
+
     private:
         int _angleComponent = 0; // for different mpu installation maybe yaw or pitch
     };
@@ -49,12 +60,23 @@ public:
     void stop();
     ~MainProgram();
 
+    virtual void handleYawPitchRoll(float y, float p, float r) override;
+
 private:
+    float _calcError(float targetAngle, float currAngle); // rads;
     void handleGetAngle(float angle);
+    bool _checkProtectionDegree(float angle);
 
     SerialPortManager* _portManager = nullptr;
     PidController* _pidController;
     State _state;
+    QElapsedTimer _timer;
+
+    /* loggers */
+    bool isLog = true;
+    logging::FileLogger<4>* _lgPid;
+    logging::FileLogger<8>* _lgMain;
+    void _logMainInfo(float pwm, float pid_out, float angleRad, float errRad, float dt, float time);
 
     static float getSignalSat(float signal, float minLim, float maxLim);
     template <class X, class M, class N, class O, class Q>

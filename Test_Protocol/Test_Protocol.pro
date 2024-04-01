@@ -9,6 +9,8 @@ CONFIG -= app_bundle
 
 SOURCES += \
         main.cpp \
+        mainprogram.cpp \
+        pidcontroller.cpp \
         serialmanager.cpp \
         serialportmanager.cpp \
         vtolprotocol.cpp
@@ -19,6 +21,9 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
 HEADERS += \
+    filelogger.h \
+    mainprogram.h \
+    pidcontroller.h \
     serialmanager.h \
     serialportmanager.h \
     vtolprotocol.h

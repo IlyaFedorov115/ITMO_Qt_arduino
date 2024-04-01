@@ -44,20 +44,34 @@ void PidController::reset()
 
 double PidController::calculate(double dt, double error)
 {
+    if (dt*1000 <= 5.0) return _hist.lastP + _hist.lastI + _hist.lastD;
     // calc proportional
-    double pOut = _Kp * error;
+    this->_hist.lastP = _Kp * error;
 
     // calc Integral
     _sumIntegral += error * dt;
-    double iOut = _Ki * _sumIntegral;
+    this->_hist.lastI = _Ki * _sumIntegral;
 
     // calc deriviation
     double deriv = (error - _prevError) / dt;
-    double dOut = _Kd * deriv;
+    this->_hist.lastD = _Kd * deriv;
 
     // output
-    double output = pOut + iOut + dOut;
+    double output = _hist.lastP + _hist.lastI + _hist.lastD;
 
     _prevError = error;
+
+
     return output;
+}
+
+
+double PidController::getLastPcomp(){
+    return this->_hist.lastP;
+}
+double PidController::getLastIcomp(){
+    return this->_hist.lastI;
+}
+double PidController::getLastDcomp(){
+    return this->_hist.lastD;
 }

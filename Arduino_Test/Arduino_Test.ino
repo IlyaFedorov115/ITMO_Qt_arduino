@@ -15,7 +15,7 @@
 #define USE_AUTO_MPU_CALIBRATION 0
 
 #define WIRE_HAS_TIMEOUT 1
-#define LOGGING_MSG_FLAG 0 // loging for Mpu init and other hardware
+#define LOGGING_MSG_FLAG 1 // loging for Mpu init and other hardware
 
 /* ------------- CONSTANTS ------------ */
 const int MPU_addr = 0x68; // адрес датчика
@@ -25,8 +25,8 @@ bool IS_SET_START = false;
 const int timeoutRead = 5;  // ms
 
 MPU6050 mpuObject(MPU_addr);
-int16_t offsetMPU[6] = {-1372,	857,	887,	3,	-40,	-52};//{-3761, 1339, -3009, 45, -54, 44}; // my 2
-//int16_t offsetMPU[6] = {-600,	-4997,	1185,	127,	27,	-99}; // 3 - main
+//int16_t offsetMPU[6] = {-1372,	857,	887,	3,	-40,	-52};//{-3761, 1339, -3009, 45, -54, 44}; // my 2
+int16_t offsetMPU[6] = {-600,	-4997,	1185,	127,	27,	-99}; // 3 - main
 
 namespace TIMER_INTER {
   unsigned long last_time = 0;
@@ -173,19 +173,21 @@ void loop() {
         vtol_protocol::Parser::parse2Serial(packetReceive, msgSend);
         packetReceive->_checkSum = SerialPacketManager::crc8((uint8_t*)packetReceive+1, packetReceive->getFullPacketSize()-1);//serialManager->calcCheckSum(packetSend);
         //serialManager->calcCheckSum(packetSend);
-        memcpy(packetBuffer, (void*)packetReceive, packetReceive->getFullPacketSize());
-        Serial.write(packetBuffer, packetReceive->getFullPacketSize());
+        //// -> was memcpy(packetBuffer, (void*)packetReceive, packetReceive->getFullPacketSize());
+        /// -> was Serial.write(packetBuffer, packetReceive->getFullPacketSize());
+        Serial.write((char*)packetReceive, packetReceive->getFullPacketSize());
         //SerialPacket packet =  vtol_protocol::Parser::parse2Serial(msgSend);
         //packet._checkSum = serialManager.calcCheckSum(packet);
         //memcpy(&packetSendBuffer[0], (void*)&packet, packet.getFullPacketSize());
         //memcpy(&packetSendBuffer[0], (void*)&packet, 6*4+3);
         //memcpy(packetSendBuffer_, packetSendBuffer__, 50);
         //Mymemcpy(packetSendBuffer, (void*)packetSend, 10);
-        
+        TIMER_INTER::last_time = millis();
+        start_new = true;
       }
 
-      TIMER_INTER::last_time = millis();
-      start_new = true;
+      //TIMER_INTER::last_time = millis();
+      //start_new = true;
     }
 
   }
@@ -228,7 +230,7 @@ void parsePacket(SerialPacket* packetReceive, vtol_protocol::ProtocolMsg* msgRec
 
   if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::PWM_SIGNAL) {
     // Shield maybe
-    if (msgReceive->data[0].number > 1470) msgReceive->data[0].number = 1470;
+    if (msgReceive->data[0].number > 1700) msgReceive->data[0].number = 1700;
     SERVO_DATA::servoAPI->writeMicroseconds((int)msgReceive->data[0].number);
   } else if (msgReceive->type == vtol_protocol::MsgProps::MSG_TYPE::SET_BY_TIMER) {
     TIMER_INTER::time_step = (long)msgReceive->data[0].number;

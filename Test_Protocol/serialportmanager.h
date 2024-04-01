@@ -6,7 +6,14 @@
 #include <QTextStream>
 #include <QTimer>
 #include <QObject>
+#include <vector>
 #include "vtolprotocol.h"
+
+class IHandlerAngleReceive {
+public:
+    virtual ~IHandlerAngleReceive() {}
+    virtual void handleYawPitchRoll(float y, float p, float r) = 0;
+};
 
 class SerialPortManager : public QObject
 {
@@ -20,12 +27,15 @@ public:
     void sendStartSim();
     void sendStopSim();
     void sendAngleType(vtol_protocol::MsgProps::ANGLE_TYPE type);
+    void setHandlerAngle(IHandlerAngleReceive* handler);
+
 
 private slots:
     void handleReadyRead();
     //void handleReadyRead();
     void handleTimeout();
     void handleError(QSerialPort::SerialPortError error);
+
 
 signals:
     void sig_GetQuartAngle(float w, float x, float y, float z);
@@ -47,6 +57,8 @@ private:
     QByteArray m_readData;
     QTextStream m_standardOutput;
     QTimer m_timer;
+
+    std::vector<IHandlerAngleReceive*> _handlersAngle;
 };
 
 #endif // SERIALPORTMANAGER_H
