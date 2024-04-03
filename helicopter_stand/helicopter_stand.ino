@@ -14,12 +14,15 @@ const int wireTimeout = 3000;
 #define SETUP_WIRE
 #define WIRE_HAS_TIMEOUT 1
 #define DEBUG_HW               // Debug hardware status (MPU6050) 
-#define DEBUG_PID
-#define DEBUG_ANGLE
+//#define DEBUG_PID
+//#define DEBUG_ANGLE
 #define DEBUG_SAFETY_BREACHED  // Debug when danger zone 
+#define DEBUG_PLOTTING_VIEW    // Debug for plotting in Arduino ide
 //#define DEBUG_WORK_PROCESS   // debug timers 
 #define USE_DMP_MPU         // using dmp get angles (10 ms + 3 to get angle)
 #define PIN_LOG_TRUE        // pin switch every secind while loop()
+
+
 
 // for mpu2 Start = +72, horisontal = 0 -> decrease
 
@@ -85,20 +88,20 @@ namespace TIMER_INTER {
 }
 
 /* -------------------- PID VARS ------------- */
-double pid_Kp = 1.75;//0.8;
-double pid_Ki = 0.00001;//0.006;    // ms
-double pid_Kd = 0.0;//300;
+double pid_Kp = 0.6*1.25;//0.8;
+double pid_Ki = pid_Kp*2 / 1000;//0.006;    // ms
+double pid_Kd = 0.125*pid_Kp*1000;//300;
 double min_control = 0;//1600;
 double max_control = PWM_MAX-PWM_MIN;//1200;
 
 /* ------------ HELICOPTER EXPERIMENT VARS ------------- */
 namespace EXPR_VARS {
-  double setpoint_angle = 30;
-  long total_error = 0;
+  double setpoint_angle = 20;
+  long total_integral = 0;
   double last_error = 0;
   double control_signal;
   void resetPid(){
-    total_error = 0; last_error = 0; control_signal = 0;
+    total_integral = 0; last_error = 0; control_signal = 0;
   }
 }
 const bool CURR_ANGLE_INCREASE = false; // Which first for error
@@ -145,6 +148,11 @@ void setup() {
   #ifdef PIN_LOG_TRUE
   pinMode(led_logger.LED_PIN, OUTPUT); // enable pin flashing for logging
   #endif
+
+  #ifdef DEBUG_PLOTTING_VIEW
+  //Serial.println("p, err, pwm, integr");
+  #endif
+
   FLAGS_WORK::startWorking = false;
   TIMER_INTER::time_since_start_full = millis();
 }
@@ -160,26 +168,35 @@ void loop() {
   if (millis() - TIMER_INTER::last_time > TIMER_INTER::time_step) 
   {
     TIMER_INTER::last_time = millis();
-    // mpu
+  
     if (mpuObject.dmpGetCurrentFIFOPacket(DMP_DATA::fifoBuffer))  // about 3-5 ms for dmpGetFifo
     { 
       //TIMER_INTER::last_time = millis();
       #ifdef DEBUG_WORK_PROCESS
-      Serial.print(F("dmp ")); Serial.print(millis() - TIMER_INTER::time_last_dmp); 
-      Serial.print(F(" dt ")); Serial.println(millis()-TIMER_INTER::last_time);
+      Serial.print(F("dmp ")); Serial.print(millis() - TIMER_INTER::time_last_dmp); Serial.print(F(" dt ")); Serial.println(millis()-TIMER_INTER::last_time);
       TIMER_INTER::time_last_dmp = millis();
       #endif
 
+      // get angle and safety
       dmpGetYawPitchRoll();
       checkSafety(rad2Degree(DMP_DATA::ypr[YPR_COMPONENT])); // danger zone
       
+      // Pid working
       double error = calcError(EXPR_VARS::setpoint_angle, rad2Degree(DMP_DATA::ypr[YPR_COMPONENT]));
       PID_Step(error, TIMER_INTER::time_step);
+
+      // use control signal
       //bldcEsc.speed(EXPR_VARS::control_signal);
-      bldcEsc.speed(map(EXPR_VARS::control_signal, min_control, max_control, PWM_MIN, PWM_MAX));
-      Serial.println(map(EXPR_VARS::control_signal, min_control, max_control, PWM_MIN, PWM_MAX));
-      
-      
+      long signal = map(EXPR_VARS::control_signal, min_control, max_control, PWM_MIN, PWM_MAX);
+      if (signal > 1650) signal = 1650;
+      bldcEsc.speed(signal);
+        
+      #ifdef DEBUG_PLOTTING_VIEW
+      Serial.print(F("pitch:")); Serial.print(rad2Degree(DMP_DATA::ypr[YPR_COMPONENT])); Serial.print(", ");
+      Serial.print(F("err:")); Serial.print(error); Serial.print(", "); 
+      Serial.print(F("pwm:")); Serial.print(signal); Serial.print(", "); Serial.print("int:");
+      Serial.println(EXPR_VARS::total_integral);
+      #endif
       //TIMER_INTER::last_time = millis();
     }
 
@@ -219,10 +236,11 @@ void controlBldc()
 void PID_Step(double error, double dt)
 {
   if (dt < 0.0001) return;
+  EXPR_VARS::total_integral += error * dt;             
   EXPR_VARS::control_signal = pid_Kp * error + 
-        pid_Ki * EXPR_VARS::total_error +
+        pid_Ki * EXPR_VARS::total_integral +
         pid_Kd * (error - EXPR_VARS::last_error)/dt;
-  EXPR_VARS::total_error += error * dt;
+  //EXPR_VARS::total_integral += error * dt;             // before calc
   EXPR_VARS::last_error = error;
 
   // limit control
@@ -238,7 +256,7 @@ void PID_Step(double error, double dt)
     Serial.print(EXPR_VARS::control_signal); Serial.print("\t");
     Serial.print(error); Serial.print("\t");
     Serial.print(dt); Serial.print("\t");
-    Serial.println(EXPR_VARS::total_error);
+    Serial.println(EXPR_VARS::total_integral);
   #endif
 
 }
