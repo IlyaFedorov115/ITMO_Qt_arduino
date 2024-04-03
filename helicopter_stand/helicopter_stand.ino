@@ -38,12 +38,15 @@ int Speed2Send = 0;
 /* -------------- MPU6050 SETTINGS ------------- */
 #ifdef USE_DMP_MPU
   #include "MPU6050_6Axis_MotionApps20.h"
+  MPU6050 mpuObject(MPU_addr);
 #else
-  #include <MPU6050.h>
+  #include "MPU6050_raw.h"
+  MPU6050_raw mpuObject(Wire);
+  mpuObject.setAddress(MPU_addr);
 #endif
 
 
-MPU6050 mpuObject(MPU_addr);
+
 int16_t offsetMPU[6] = {-1372,	857,	887,	3,	-40,	-52};//{-3761, 1339, -3009, 45, -54, 44}; // my 2
 //int16_t offsetMPU[6] = {-600,	-4997,	1185,	127,	27,	-99}; // 3 - main
 #ifdef USE_DMP_MPU
@@ -161,7 +164,7 @@ void setup() {
   #endif
 
   mpu_initialization(); 
-  set_calibration(&mpuObject, offsetMPU);
+  set_calibration(offsetMPU);
 
   #ifdef PIN_LOG_TRUE
   pinMode(led_logger.LED_PIN, OUTPUT); // enable pin flashing for logging
@@ -378,6 +381,8 @@ void dmpGetYawPitchRoll()
 }
 #endif
 
+
+
 #ifndef USE_DMP_MPU
 
 void getRawAccelGyro()
@@ -443,15 +448,21 @@ double rad2Degree(double rad)
   return rad * (180.0 / PI);
 }
 
-void set_calibration(MPU6050* mpu, int16_t data[6])
-    {
-        mpu->setXAccelOffset(data[0]);
-        mpu->setYAccelOffset(data[1]);
-        mpu->setZAccelOffset(data[2]);
-        mpu->setXGyroOffset(data[3]);
-        mpu->setYGyroOffset(data[4]);
-        mpu->setZGyroOffset(data[5]);
-    }
+void set_calibration(int16_t data[6])
+{
+  #ifdef USE_DMP_MPU
+        mpuObject.setXAccelOffset(data[0]);
+        mpuObject.setYAccelOffset(data[1]);
+        mpuObject.setZAccelOffset(data[2]);
+        mpuObject.setXGyroOffset(data[3]);
+        mpuObject.setYGyroOffset(data[4]);
+        mpuObject.setZGyroOffset(data[5]);
+  #else
+    mpuObject.setGyroOffsets(data[3], data[4], data[5]);
+    mpuObject.setAccOffsets(data[0], data[1], data[2]);
+  #endif
+
+}
 
 void bldcCheckRampUpDown() {
   for (Speed2Send = PWM_MIN; Speed2Send <= PWM_MIN+100; Speed2Send += 10) {       
