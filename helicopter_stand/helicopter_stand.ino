@@ -72,27 +72,40 @@ namespace TIMER_INTER {
   unsigned long time_step = 15;
   unsigned long time_since_start_full = 0;
   unsigned long time_since_start_experimental = 0;
+  unsigned long time_last_dmp = 0;  
 
-  unsigned long time_last_dmp = 0;
-
-  long t_rise = 0;
-  //long t_settle = 0;
-  long t_setup = 0;
-  int overshoot = 0;
-  long t_now = 0;
-  long t_last_print = 0;
-  long t_last_PID = 0;
-  long t_sine = 0;
-  int T_sample = 20;    // sample time in milliseconds (ms)
-  int T_print = 1000;  // sample print to monitor time in milliseconds (ms)
+  // safety timers
+  //unsigned long
 }
 
-/* -------------------- PID VARS ------------- */
+
+
+
+/* --------------- PID AND SAT VARS ------------- */
 double pid_Kp = 0.6*1.25;//0.8;
 double pid_Ki = pid_Kp*2 / 1000;//0.006;    // ms
 double pid_Kd = 0.125*pid_Kp*1000;//300;
-double min_control = 0;//1600;
-double max_control = PWM_MAX-PWM_MIN;//1200;
+const bool USE_START_PWM = false;                     /* pwm_hor + u_pid */ 
+double startPwm = 1400;                               /* Set another max/min pid */
+const double min_PID_control = (USE_START_PWM) ? (PWM_MIN-startPwm) : 0;                       /* !! Attention !! */
+const double max_PID_control = (USE_START_PWM) ? (PWM_MAX-startPwm) : (PWM_MAX-PWM_MIN);       /* if use pwm_hor */
+
+namespace SATURATION_NS {
+  double minOut = 1200;                              
+  double maxOut = 1500;       
+  bool USE_START_PWM = false; 
+  inline double satSignal(double signal){
+    if (signal < minOut) signal = minOut;
+    if (signal > maxOut) signal = maxOut;
+    return signal;
+  }
+
+  inline double sigFromPid2Pwm(double sig) {
+    if (USE_START_PWM) return sig + startPwm;
+    else return  map(sig, min_PID_control, max_PID_control, PWM_MIN, PWM_MAX);;
+  }
+}
+
 
 /* ------------ HELICOPTER EXPERIMENT VARS ------------- */
 namespace EXPR_VARS {
@@ -105,9 +118,15 @@ namespace EXPR_VARS {
   }
 }
 const bool CURR_ANGLE_INCREASE = false; // Which first for error
-double SAFE_LIMIT_ANGLE = -75;
+
+/* SAFETY */
+const double SAFE_LIMIT_ANGLE = -75;
+const double saf_MaxAngleDiff = 30.0;
+double saf_LastAngle = 0;
+bool saf_SetLastAngle = false;
 bool checkSafety(double curr_angle);   /* STOP work if angle in danger Zone */
 #define YPR_COMPONENT (1)
+
 
 /* --------------- WORKING FLAGS ------------------- */
 namespace FLAGS_WORK {
@@ -117,7 +136,7 @@ namespace FLAGS_WORK {
 }
 
 
-
+/* ------------- SETUP PROJECT ------------------ */
 
 void setup() {
   Serial.begin(serialFreq);
@@ -143,35 +162,34 @@ void setup() {
 
   mpu_initialization(); 
   set_calibration(&mpuObject, offsetMPU);
-  TIMER_INTER::t_setup = millis();
 
   #ifdef PIN_LOG_TRUE
   pinMode(led_logger.LED_PIN, OUTPUT); // enable pin flashing for logging
   #endif
 
-  #ifdef DEBUG_PLOTTING_VIEW
-  //Serial.println("p, err, pwm, integr");
-  #endif
 
   FLAGS_WORK::startWorking = false;
   TIMER_INTER::time_since_start_full = millis();
 }
 
-void loop() {
-  if (Serial.available() > 0){
-    switchWorking(Serial.read());
-  }
 
-  // set do nothing
+
+
+/* ------------------ MAIN LOOP -------------------- */
+void loop() {
+  
+  if (Serial.available() > 0){ switchWorking(Serial.read()); } // read command to stop/start
+
+  // set flag do nothing
   if (!FLAGS_WORK::startWorking) return;
 
+  // dt step working
   if (millis() - TIMER_INTER::last_time > TIMER_INTER::time_step) 
   {
     TIMER_INTER::last_time = millis();
   
     if (mpuObject.dmpGetCurrentFIFOPacket(DMP_DATA::fifoBuffer))  // about 3-5 ms for dmpGetFifo
     { 
-      //TIMER_INTER::last_time = millis();
       #ifdef DEBUG_WORK_PROCESS
       Serial.print(F("dmp ")); Serial.print(millis() - TIMER_INTER::time_last_dmp); Serial.print(F(" dt ")); Serial.println(millis()-TIMER_INTER::last_time);
       TIMER_INTER::time_last_dmp = millis();
@@ -185,12 +203,14 @@ void loop() {
       double error = calcError(EXPR_VARS::setpoint_angle, rad2Degree(DMP_DATA::ypr[YPR_COMPONENT]));
       PID_Step(error, TIMER_INTER::time_step);
 
-      // use control signal
-      //bldcEsc.speed(EXPR_VARS::control_signal);
-      long signal = map(EXPR_VARS::control_signal, min_control, max_control, PWM_MIN, PWM_MAX);
+
+      // Get signal and saturation
+      long signal = SATURATION_NS::sigFromPid2Pwm(EXPR_VARS::control_signal);
+      signal = SATURATION_NS::satSignal(signal);
       if (signal > 1650) signal = 1650;
       bldcEsc.speed(signal);
-        
+
+
       #ifdef DEBUG_PLOTTING_VIEW
       Serial.print(F("pitch:")); Serial.print(rad2Degree(DMP_DATA::ypr[YPR_COMPONENT])); Serial.print(", ");
       Serial.print(F("err:")); Serial.print(error); Serial.print(", "); 
@@ -244,11 +264,11 @@ void PID_Step(double error, double dt)
   EXPR_VARS::last_error = error;
 
   // limit control
-  if (EXPR_VARS::control_signal > max_control) {
-    EXPR_VARS::control_signal = max_control;
+  if (EXPR_VARS::control_signal > max_PID_control) {
+    EXPR_VARS::control_signal = max_PID_control;
   }
-  if (EXPR_VARS::control_signal < min_control) {
-    EXPR_VARS::control_signal = min_control;
+  if (EXPR_VARS::control_signal < min_PID_control) {
+    EXPR_VARS::control_signal = min_PID_control;
   }
 
   #ifdef DEBUG_PID
@@ -277,14 +297,25 @@ void switchWorking(int ch) {
     }
 }
 
-bool checkSafety(double curr_angle) {
+inline bool checkSafety(double curr_angle) {
+  // check Danger zone limit
   bool checkDanger = (CURR_ANGLE_INCREASE) ? (curr_angle > SAFE_LIMIT_ANGLE) : (curr_angle < SAFE_LIMIT_ANGLE);
+
+  // check if Sudden change angle too fast
+  if (!checkDanger && saf_SetLastAngle) {
+    double diff = curr_angle - saf_LastAngle;
+    if (diff < 0.0) diff = -diff;
+    if (diff >= saf_MaxAngleDiff) checkDanger = true;
+  }
+
   if (checkDanger) {
     stop();
     #ifdef DEBUG_SAFETY_BREACHED
-      Serial.println(F("\n\n==DANGER==\n\n"));
+      Serial.println(F("\n===DANGER===\n"));
     #endif
   }
+  if (!saf_SetLastAngle) {  saf_SetLastAngle = true; }
+  saf_LastAngle = curr_angle;
 }
 
 void stop() {
