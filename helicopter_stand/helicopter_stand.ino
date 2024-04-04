@@ -4,7 +4,7 @@
 #endif
 
 #include "supp.h"
-
+#include "filters/GKalman.h"
 
 
 /* --------------- SETTINGS CONSTANTS ------------ */
@@ -69,7 +69,7 @@ int16_t offsetMPU[6] = {-1372,	857,	887,	3,	-40,	-52};//{-3761, 1339, -3009, 45,
 /* -------------- TIMER VARS ------------------ */
 namespace TIMER_INTER {
   unsigned long last_time = 0;
-  unsigned long time_step = 10;
+  unsigned long time_step = 20;
   unsigned long time_since_start_full = 0;
   unsigned long time_since_start_experimental = 0;
   unsigned long time_last_dmp = 0;  
@@ -132,6 +132,8 @@ namespace FLAGS_WORK {
   bool HARDWARE_STATUS = false;
 }
 
+/* ------ Filter ------ */
+GKalman filter(0.8, 0.1);
 
 /* ------------- SETUP PROJECT ------------------ */
 
@@ -161,7 +163,7 @@ void setup() {
   set_calibration(&mpuObject, offsetMPU);
 
   // Init MPU error, don`t do anything
-  while (!FLAGS_WORK::HARDWARE_STATUS) { FLAGS_WORK::startWorking = false; }
+  while (!FLAGS_WORK::HARDWARE_STATUS) { FLAGS_WORK::startWorking = false; delay(1000); }
 
   #ifdef PIN_LOG_TRUE
   pinMode(led_logger.LED_PIN, OUTPUT); // enable pin flashing for logging
@@ -181,7 +183,7 @@ void loop() {
   if (Serial.available() > 0){ switchWorking(Serial.read()); } // read command to stop/start
 
   // check mpu is ok
-  checkHW();
+  //checkHW();
 
   // set flag to do nothing
   if (!FLAGS_WORK::startWorking) return;
@@ -190,7 +192,8 @@ void loop() {
   if (millis() - TIMER_INTER::last_time > TIMER_INTER::time_step) 
   {
     TIMER_INTER::last_time = millis();
-  
+    checkHW();
+
     if (mpuObject.dmpGetCurrentFIFOPacket(DMP_DATA::fifoBuffer))  // about 3-5 ms for dmpGetFifo
     { 
       #ifdef DEBUG_WORK_PROCESS
@@ -202,7 +205,8 @@ void loop() {
       dmpGetYawPitchRoll();
       double currAngleDegree = rad2Degree(DMP_DATA::ypr[YPR_COMPONENT]);
       checkSafety(currAngleDegree); // danger zone
-      
+      double filteredAngle = filter.filtered(currAngleDegree);
+
       // Pid working
       double error = calcError(EXPR_VARS::setpoint_angle, currAngleDegree);
       PID_Step(error, TIMER_INTER::time_step);
@@ -211,7 +215,7 @@ void loop() {
       // Get signal and saturation
       long signal = SATURATION_NS::sigFromPid2Pwm(EXPR_VARS::control_signal);
       signal = SATURATION_NS::satSignal(signal);
-      if (signal > 1650) signal = 1650;
+      if (signal > 1500) signal = 1500;
       bldcEsc.speed(signal);
 
 
@@ -484,21 +488,23 @@ void bldcCheckRampUpDown() {
 }
 
 void mpu_initialization() { 
-  mpuObject.initialize();
-#ifdef DEBUG_HW
-  Serial.println(mpuObject.testConnection() ? F("MPU OK") : F("MPU FAIL")); // состояние соединения
-  Serial.println("Init DMP");
-#endif
+    mpuObject.initialize();
+  #ifdef DEBUG_HW
+    Serial.println(mpuObject.testConnection() ? F("MPU OK") : F("MPU FAIL")); // состояние соединения
+    Serial.println("Init DMP");
+  #endif
 
-#ifdef USE_DMP_MPU
-  int8_t devStatus = mpuObject.dmpInitialize();
-  if (devStatus == 0) {
-    mpuObject.setDMPEnabled(true);
-  } else {
-    Serial.print(F("DMP err: "));
-    Serial.println(devStatus);
-  }
-#endif
+  #ifdef USE_DMP_MPU
+    int8_t devStatus = mpuObject.dmpInitialize();
+    if (devStatus == 0) {
+      mpuObject.setDMPEnabled(true);
+      FLAGS_WORK::HARDWARE_STATUS = true; 
+    } else {
+      FLAGS_WORK::HARDWARE_STATUS = false;
+      Serial.print(F("DMP err: "));
+      Serial.println(devStatus);
+    }
+  #endif
 }
 
 
