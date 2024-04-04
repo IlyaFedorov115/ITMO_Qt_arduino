@@ -38,15 +38,12 @@ int Speed2Send = 0;
 /* -------------- MPU6050 SETTINGS ------------- */
 #ifdef USE_DMP_MPU
   #include "MPU6050_6Axis_MotionApps20.h"
-  MPU6050 mpuObject(MPU_addr);
 #else
-  #include "MPU6050_raw.h"
-  MPU6050_raw mpuObject(Wire);
-  mpuObject.setAddress(MPU_addr);
+  #include <MPU6050.h>
 #endif
 
 
-
+MPU6050 mpuObject(MPU_addr);
 int16_t offsetMPU[6] = {-1372,	857,	887,	3,	-40,	-52};//{-3761, 1339, -3009, 45, -54, 44}; // my 2
 //int16_t offsetMPU[6] = {-600,	-4997,	1185,	127,	27,	-99}; // 3 - main
 #ifdef USE_DMP_MPU
@@ -58,7 +55,7 @@ int16_t offsetMPU[6] = {-1372,	857,	887,	3,	-40,	-52};//{-3761, 1339, -3009, 45,
     float euler[3];         // [psi, theta, phi]    Euler angle container
   }
 #else
-  int16_t ax, ay, az;
+  int16_t ax, ay, az;     /* raw while don`t used */
   int16_t gx, gy, gz;
   double accAngleX;
   double accAngleY;
@@ -72,13 +69,10 @@ int16_t offsetMPU[6] = {-1372,	857,	887,	3,	-40,	-52};//{-3761, 1339, -3009, 45,
 /* -------------- TIMER VARS ------------------ */
 namespace TIMER_INTER {
   unsigned long last_time = 0;
-  unsigned long time_step = 15;
+  unsigned long time_step = 10;
   unsigned long time_since_start_full = 0;
   unsigned long time_since_start_experimental = 0;
   unsigned long time_last_dmp = 0;  
-
-  // safety timers
-  //unsigned long
 }
 
 
@@ -105,7 +99,7 @@ namespace SATURATION_NS {
 
   inline double sigFromPid2Pwm(double sig) {
     if (USE_START_PWM) return sig + startPwm;
-    else return  map(sig, min_PID_control, max_PID_control, PWM_MIN, PWM_MAX);;
+    else return map(sig, min_PID_control, max_PID_control, PWM_MIN, PWM_MAX);
   }
 }
 
@@ -122,20 +116,20 @@ namespace EXPR_VARS {
 }
 const bool CURR_ANGLE_INCREASE = false; // Which first for error
 
-/* SAFETY */
+/* ------------------- SAFETY ----------------- */
 const double SAFE_LIMIT_ANGLE = -75;
 const double saf_MaxAngleDiff = 30.0;
 double saf_LastAngle = 0;
 bool saf_SetLastAngle = false;
 bool checkSafety(double curr_angle);   /* STOP work if angle in danger Zone */
+void saf_reset(){ saf_LastAngle = 0; saf_SetLastAngle = false;}
 #define YPR_COMPONENT (1)
 
 
 /* --------------- WORKING FLAGS ------------------- */
 namespace FLAGS_WORK {
-  bool recorded_settling = false;
-  bool recorded_rise = false;
   bool startWorking = false;  
+  bool HARDWARE_STATUS = false;
 }
 
 
@@ -163,8 +157,11 @@ void setup() {
     #endif
   #endif
 
-  mpu_initialization(); 
-  set_calibration(offsetMPU);
+  mpu_initialization();   // set HW status
+  set_calibration(&mpuObject, offsetMPU);
+
+  // Init MPU error, don`t do anything
+  while (!FLAGS_WORK::HARDWARE_STATUS) { FLAGS_WORK::startWorking = false; }
 
   #ifdef PIN_LOG_TRUE
   pinMode(led_logger.LED_PIN, OUTPUT); // enable pin flashing for logging
@@ -183,7 +180,10 @@ void loop() {
   
   if (Serial.available() > 0){ switchWorking(Serial.read()); } // read command to stop/start
 
-  // set flag do nothing
+  // check mpu is ok
+  checkHW();
+
+  // set flag to do nothing
   if (!FLAGS_WORK::startWorking) return;
 
   // dt step working
@@ -200,10 +200,11 @@ void loop() {
 
       // get angle and safety
       dmpGetYawPitchRoll();
-      checkSafety(rad2Degree(DMP_DATA::ypr[YPR_COMPONENT])); // danger zone
+      double currAngleDegree = rad2Degree(DMP_DATA::ypr[YPR_COMPONENT]);
+      checkSafety(currAngleDegree); // danger zone
       
       // Pid working
-      double error = calcError(EXPR_VARS::setpoint_angle, rad2Degree(DMP_DATA::ypr[YPR_COMPONENT]));
+      double error = calcError(EXPR_VARS::setpoint_angle, currAngleDegree);
       PID_Step(error, TIMER_INTER::time_step);
 
 
@@ -215,7 +216,7 @@ void loop() {
 
 
       #ifdef DEBUG_PLOTTING_VIEW
-      Serial.print(F("pitch:")); Serial.print(rad2Degree(DMP_DATA::ypr[YPR_COMPONENT])); Serial.print(", ");
+      Serial.print(F("pitch:")); Serial.print(currAngleDegree); Serial.print(", ");
       Serial.print(F("err:")); Serial.print(error); Serial.print(", "); 
       Serial.print(F("pwm:")); Serial.print(signal); Serial.print(", "); Serial.print("int:");
       Serial.println(EXPR_VARS::total_integral);
@@ -328,6 +329,7 @@ void stop() {
 }
 
 void start() {
+  saf_reset();
   timersStart();
   reset();
   FLAGS_WORK::startWorking = true;
@@ -337,12 +339,23 @@ void timersStart() {
   TIMER_INTER::time_since_start_experimental = millis();
 }
 
+void checkHW() {
+  if (!mpuObject.testConnection()) {
+    FLAGS_WORK::HARDWARE_STATUS = false;
+    stop();
+#ifdef DEBUG_SAFETY_BREACHED
+  Serial.println(F("\n==MPU ERROR=="));
+#endif
+  }
+}
+
 //void resetPid();
 void reset() {
   EXPR_VARS::resetPid();
   TIMER_INTER::last_time = 0;
   TIMER_INTER::time_since_start_full = 0;
   TIMER_INTER::time_since_start_experimental = 0;
+  saf_reset();
 }
 
 double calcError(double setAngle, double currAngle)
@@ -380,8 +393,6 @@ void dmpGetYawPitchRoll()
   #endif
 }
 #endif
-
-
 
 #ifndef USE_DMP_MPU
 
@@ -448,21 +459,15 @@ double rad2Degree(double rad)
   return rad * (180.0 / PI);
 }
 
-void set_calibration(int16_t data[6])
-{
-  #ifdef USE_DMP_MPU
-        mpuObject.setXAccelOffset(data[0]);
-        mpuObject.setYAccelOffset(data[1]);
-        mpuObject.setZAccelOffset(data[2]);
-        mpuObject.setXGyroOffset(data[3]);
-        mpuObject.setYGyroOffset(data[4]);
-        mpuObject.setZGyroOffset(data[5]);
-  #else
-    mpuObject.setGyroOffsets(data[3], data[4], data[5]);
-    mpuObject.setAccOffsets(data[0], data[1], data[2]);
-  #endif
-
-}
+void set_calibration(MPU6050* mpu, int16_t data[6])
+    {
+        mpu->setXAccelOffset(data[0]);
+        mpu->setYAccelOffset(data[1]);
+        mpu->setZAccelOffset(data[2]);
+        mpu->setXGyroOffset(data[3]);
+        mpu->setYGyroOffset(data[4]);
+        mpu->setZGyroOffset(data[5]);
+    }
 
 void bldcCheckRampUpDown() {
   for (Speed2Send = PWM_MIN; Speed2Send <= PWM_MIN+100; Speed2Send += 10) {       
