@@ -10,6 +10,11 @@
 const byte ESC_PIN = 9;
 Servo bldcEsc;
 
+
+
+//int16_t offsetMPU[6] = {-1372,	857,	887,	3,	-40,	-52};//{-3761, 1339, -3009, 45, -54, 44}; // my 2
+int16_t offsetMPU[6] = {-600,	-4997,	1185,	127,	27,	-99}; // 3 - main
+
 int16_t Acc_rawX, Acc_rawY, Acc_rawZ,Gyr_rawX, Gyr_rawY, Gyr_rawZ;
 float Acceleration_angle[2];
 float Gyro_angle[2];
@@ -85,11 +90,11 @@ void setup() {
   // ******** get angle in loop ********//
   // ****** to prepare mpu6050 *****//
   for (int i = 0; i < 5000; i++) {
-    getAngle();
+   // getAngle();
   }
 
 
-  delay(4000);
+ // delay(4000);
 
   time = millis();
 
@@ -111,37 +116,8 @@ if (!FLAGS_WORK::startWorking) return;
 #endif
 
   /* ========= read angle ============= */
-  Wire.beginTransmission(0x68);
-  Wire.write(0x3B); //Ask for the 0x3B register- correspond to AcX
-  Wire.endTransmission(false);
-  Wire.requestFrom(0x68,6,true); 
 
-  Acc_rawX=Wire.read()<<8|Wire.read(); //each value needs two registres
-  Acc_rawY=Wire.read()<<8|Wire.read();
-  Acc_rawZ=Wire.read()<<8|Wire.read();
-
- /*---X---*/
-  Acceleration_angle[0] = atan((Acc_rawY/16384.0)/sqrt(pow((Acc_rawX/16384.0),2) + pow((Acc_rawZ/16384.0),2)))*rad_to_deg;
-  /*---Y---*/
-  Acceleration_angle[1] = atan(-1*(Acc_rawX/16384.0)/sqrt(pow((Acc_rawY/16384.0),2) + pow((Acc_rawZ/16384.0),2)))*rad_to_deg;
-
-  Wire.beginTransmission(0x68);
-  Wire.write(0x43); //Gyro data first adress
-  Wire.endTransmission(false);
-  Wire.requestFrom(0x68,4,true); //Just 4 registers  
-
-  Gyr_rawX=Wire.read()<<8|Wire.read(); //Once again we shif and sum
-  Gyr_rawY=Wire.read()<<8|Wire.read();
-
-  /*---X---*/
-  Gyro_angle[0] = Gyr_rawX/131.0; 
-   /*---Y---*/
-  Gyro_angle[1] = Gyr_rawY/131.0;
-
-/*---X axis angle---*/
-   Total_angle[0] = 0.98 *(Total_angle[0] + Gyro_angle[0]*elapsedTime) + 0.02*Acceleration_angle[0];
-   /*---Y axis angle---*/
-   Total_angle[1] = 0.98 *(Total_angle[1] + Gyro_angle[1]*elapsedTime) + 0.02*Acceleration_angle[1];
+  getAngle();
 
   #ifdef DEBUG_WORK
   Serial.print("angle:"); Serial.println(Total_angle[1]);
@@ -152,7 +128,7 @@ if (!FLAGS_WORK::startWorking) return;
 #endif
 
 
-  if (Total_angle[1] > 40) { stop(); return; }
+ //************** if (Total_angle[1] > 40) { stop(); return; } **********/
 
   /****** START -70, hor = 0 ****/
   error = desired_angle - Total_angle[1];//Total_angle[1] - desired_angle;
@@ -281,6 +257,14 @@ void getAngle()
   Acc_rawY=Wire.read()<<8|Wire.read();
   Acc_rawZ=Wire.read()<<8|Wire.read();
 
+
+  // offset
+//  Acc_rawX -= offsetMPU[0];
+//  Acc_rawY -= offsetMPU[1];
+//  Acc_rawZ -= offsetMPU[2];
+
+
+
  /*---X---*/
   Acceleration_angle[0] = atan((Acc_rawY/16384.0)/sqrt(pow((Acc_rawX/16384.0),2) + pow((Acc_rawZ/16384.0),2)))*rad_to_deg;
   /*---Y---*/
@@ -293,6 +277,10 @@ void getAngle()
 
   Gyr_rawX=Wire.read()<<8|Wire.read(); //Once again we shif and sum
   Gyr_rawY=Wire.read()<<8|Wire.read();
+
+  // offset
+ // Gyr_rawX -= offsetMPU[3];
+ // Gyr_rawY -= offsetMPU[4];
 
   /*---X---*/
   Gyro_angle[0] = Gyr_rawX/131.0; 
