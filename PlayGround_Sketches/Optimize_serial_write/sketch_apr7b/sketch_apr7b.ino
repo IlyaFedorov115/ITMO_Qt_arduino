@@ -45,11 +45,11 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-  a1 = random(1000) * PI / (float)(random(1,3));
-  a2 = random(1000) * PI / (float)(random(1,3));
-  a3 = random(1000) * PI / (float)(random(1,3));
-  a4 = random(1000) * PI / (float)(random(1,3));
-  a5 = random(1000) * PI / (float)(random(1,3));
+  a1 = random(50) * PI / (float)(random(1,2));
+  a2 = random(60) * PI / (float)(random(1,2));
+  a3 = random(55) * PI / (float)(random(1,2));
+  a4 = random(40) * PI / (float)(random(1,2));
+  a5 = random(20) * PI / (float)(random(1,2));
 
   a_1.num = a1;
   a_2.num = a1;
@@ -67,7 +67,7 @@ void loop() {
   Serial.println(a5);
   //*/
 
-  ///*
+  /*
   Serial.write((const char*)&a1, sizeof(a1));
   Serial.write(',');
   Serial.write((const char*)&a1, sizeof(a2));
@@ -78,9 +78,9 @@ void loop() {
   Serial.write(',');
   Serial.write((const char*)&a1, sizeof(a5));
   Serial.write('\n');
-  //*/
+  */
 
-/*
+///*
   Serial.write(a_1.buffer, 4);
   Serial.write(',');
   Serial.write(a_2.buffer, 4);
@@ -91,7 +91,7 @@ void loop() {
   Serial.write(',');
   Serial.write(a_5.buffer, 4);
   Serial.write('\n');
-*/
+//*/
 
   time_micros_diff = micros() - last_time_write_micros;
   time_millis_diff = millis() - last_time_write_millis;

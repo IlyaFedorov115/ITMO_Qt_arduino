@@ -53,7 +53,7 @@ void loop() {
   if (Serial.available() > 0){ switchWorking(Serial.read()); } // read command to stop/start
 
   if (changePWM) {
-    if (currPWM >= 1680) currPWM = 1640;
+    if (currPWM >= 1640) currPWM = 1640;
     SERVO_DATA::servoAPI->writeMicroseconds(currPWM);
     changePWM = false;
   }
@@ -73,6 +73,7 @@ void loop() {
 void switchWorking(int ch) {
     //Serial.read(); Serial.read();
     //FLAGS_WORK::startWorking = !FLAGS_WORK::startWorking;
+    static bool smooth = false;
     switch(ch)
     {
       case '1':
@@ -82,27 +83,154 @@ void switchWorking(int ch) {
       case '2':
         changePWM = true;
         currPWM -= step;
-      case '3': // STOP SIMPLE
+      case '3': // SET MIN START
         changePWM = true;
         currPWM = minStart;
         break;
       case '0': // STOP STOP STOP
         changePWN = true;
         currPWM = SERVO_DATA::ESC_MIL_MIN;
+        SERVO_DATA::servoAPI->writeMicroseconds(currPWM);
         break;
-      //case '9':
-        // плавная останова
+      case '4':
+        if (smooth) return;
+        smooth = true;
+        smoothStop();
+        smooth = false;
+        break;
       
     }
 }
 
 
+void smoothStop() {
+  static const long step_time_decrease = 100;
+  static const int stop_pwm = 1350;
+  static const int step_pwm_decrease = 5;
+  static long last_time_decrease;
+
+  // start loop (maybe switchWorking make with return to break loop)
+  last_time_decrease = millis();
+  if (currPWM > 1610) {
+    currPWM = 1600;
+    SERVO_DATA::servoAPI->writeMicroseconds(currPWM);
+  }
+
+  while(true)
+  {
+    if (Serial.available() > 0){ switchWorking(Serial.read()); } 
+
+    if (millis() - last_time_decrease > step_time_decrease)
+    {
+      currPWM -= step_pwm_decrease;
+      SERVO_DATA::servoAPI->writeMicroseconds(currPWM);
+      last_time_decrease = millis();
+      
+      if (currPWM < stop_pwm){
+        currPWM = ESC_MIL_MIN;
+        SERVO_DATA::servoAPI->writeMicroseconds(currPWM);
+        return;
+      }
+
+    }
+  }
+
+}
 
 
 
+inline void getAngle()
+{
+   /* ========= read angle ============= */
+  Wire.beginTransmission(0x68);
+  Wire.write(0x3B); //Ask for the 0x3B register- correspond to AcX
+  Wire.endTransmission(false);
+  Wire.requestFrom(0x68,6,true); 
+
+  Acc_rawX=Wire.read()<<8|Wire.read(); //each value needs two registres
+  Acc_rawY=Wire.read()<<8|Wire.read();
+  Acc_rawZ=Wire.read()<<8|Wire.read();
 
 
-void getAngle()
+  // offset
+//  Acc_rawX -= offsetMPU[0];
+//  Acc_rawY -= offsetMPU[1];
+//  Acc_rawZ -= offsetMPU[2];
+
+
+ // Acceleration_angle[0] = atan((Acc_rawY/16384.0)/sqrt(pow((Acc_rawX/16384.0),2) + pow((Acc_rawZ/16384.0),2)))*rad_to_deg;
+
+ // Acceleration_angle[1] = atan(-1*(Acc_rawX/16384.0)/sqrt(pow((Acc_rawY/16384.0),2) + pow((Acc_rawZ/16384.0),2)))*rad_to_deg;
+
+ /*---X---*/
+  Acceleration_angle[0] = atan((Acc_rawY/16384.0)/sqrt((Acc_rawX/16384.0)*(Acc_rawX/16384.0) + (Acc_rawZ/16384.0)*(Acc_rawZ/16384.0)))*rad_to_deg;
+  /*---Y---*/
+  Acceleration_angle[1] = atan(-1*(Acc_rawX/16384.0)/sqrt((Acc_rawY/16384.0)*(Acc_rawY/16384.0) + (Acc_rawZ/16384.0)*(Acc_rawZ/16384.0)))*rad_to_deg;
+
+  Wire.beginTransmission(0x68);
+  Wire.write(0x43); //Gyro data first adress
+  Wire.endTransmission(false);
+  Wire.requestFrom(0x68,4,true); //Just 4 registers  
+
+  Gyr_rawX=Wire.read()<<8|Wire.read(); //Once again we shif and sum
+  Gyr_rawY=Wire.read()<<8|Wire.read();
+
+  // offset
+ // Gyr_rawX -= offsetMPU[3];
+ // Gyr_rawY -= offsetMPU[4];
+
+  /*---X---*/
+  Gyro_angle[0] = Gyr_rawX/131.0; 
+   /*---Y---*/
+  Gyro_angle[1] = Gyr_rawY/131.0;
+
+/*---X axis angle---*/
+   Total_angle[0] = 0.98 *(Total_angle[0] + Gyro_angle[0]*elapsedTime) + 0.02*Acceleration_angle[0];
+   /*---Y axis angle---*/
+   Total_angle[1] = 0.98 *(Total_angle[1] + Gyro_angle[1]*elapsedTime) + 0.02*Acceleration_angle[1];
+}
+
+
+
+void getAngleFilt()
+{
+  static SimpleLowPass filter1(0.26);
+  static SimpleLowPass filter2(0.26);
+  static SimpleLowPass filter3(0.26);
+   /* ========= read angle ============= */
+
+  Acc_rawX_filt = filter1.filter(Acc_rawX);
+  Acc_rawY_filt = filter2.filter(Acc_rawY);
+  Acc_rawZ_filt = filter3.filter(Acc_rawZ);
+
+  //Acceleration_angle_filt[0] = atan((Acc_rawY_filt/16384.0)/sqrt(pow((Acc_rawX_filt/16384.0),2) + pow((Acc_rawZ_filt/16384.0),2)))*rad_to_deg;
+  //Acceleration_angle_filt[1] = atan(-1*(Acc_rawX_filt/16384.0)/sqrt(pow((Acc_rawY_filt/16384.0),2) + pow((Acc_rawZ_filt/16384.0),2)))*rad_to_deg;
+
+  Acceleration_angle_filt[0] = atan((Acc_rawY_filt/16384.0)/sqrt((Acc_rawX_filt/16384.0)*(Acc_rawX_filt/16384.0) + (Acc_rawZ_filt/16384.0)*(Acc_rawZ_filt/16384.0)))*rad_to_deg;
+  Acceleration_angle_filt[1] = atan(-1*(Acc_rawX_filt/16384.0)/sqrt((Acc_rawY_filt/16384.0)*(Acc_rawY_filt/16384.0) + (Acc_rawZ_filt/16384.0)*(Acc_rawZ_filt/16384.0)))*rad_to_deg;
+
+ /*---X---*/
+//  Acceleration_angle[0] = atan((Acc_rawY/16384.0)/sqrt(pow((Acc_rawX/16384.0),2) + pow((Acc_rawZ/16384.0),2)))*rad_to_deg;
+  /*---Y---*/
+//  Acceleration_angle[1] = atan(-1*(Acc_rawX/16384.0)/sqrt(pow((Acc_rawY/16384.0),2) + pow((Acc_rawZ/16384.0),2)))*rad_to_deg;
+
+ // Acceleration_angle_filt[0] = filter1.filter(Acceleration_angle[0]);
+ // Acceleration_angle_filt[1] = filter2.filter(Acceleration_angle[1]);
+
+/*---X axis angle---*/
+//   Total_angle_filt[0] = 0.98 *(Total_angle_filt[0] + Gyro_angle[0]*elapsedTime) + 0.02*Acceleration_angle_filt[0];
+   /*---Y axis angle---*/
+ //  Total_angle_filt[1] = 0.98 *(Total_angle_filt[1] + Gyro_angle[1]*elapsedTime) + 0.02*Acceleration_angle_filt[1];
+
+   //Total_angle_filt[0] = filterObjAccelAngle1.filter(Total_angle[0]);
+  // Total_angle_filt[1] = filterObjAccelAngle1.filter(Total_angle[1]);
+ // Total_angle_filt[1] = filt(Total_angle[1]);
+ Total_angle_filt[1] = 0.98 *(Total_angle_filt[1] + Gyro_angle[1]*elapsedTime) + 0.02*Acceleration_angle_filt[1];
+}
+
+
+
+void getAngle1()
 {
    /* ========= read angle ============= */
   Wire.beginTransmission(0x68);
@@ -145,7 +273,7 @@ void getAngle()
 
 
 
-void getAngleFilt()
+void getAngleFilt1()
 {
   static SimpleLowPass filter1(filtK);
   static SimpleLowPass filter2(filtK);
