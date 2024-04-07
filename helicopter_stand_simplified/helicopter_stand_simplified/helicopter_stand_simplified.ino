@@ -1,10 +1,10 @@
 #include <Wire.h>
 #include <Servo.h>
-
+#include "filters.h"
 #define PWM_MIN (1200)
 #define PWM_MAX (2000)
 
-#define DEBUG_WORK
+//#define DEBUG_WORK
 //#define DEBUG_TIMERS
 
 const byte ESC_PIN = 9;
@@ -16,9 +16,16 @@ Servo bldcEsc;
 int16_t offsetMPU[6] = {-600,	-4997,	1185,	127,	27,	-99}; // 3 - main
 
 int16_t Acc_rawX, Acc_rawY, Acc_rawZ,Gyr_rawX, Gyr_rawY, Gyr_rawZ;
+
+float Acc_rawX_filt, Acc_rawY_filt, Acc_rawZ_filt, Gyr_rawX_filt, Gyr_rawY_filt, Gyr_rawZ_filt;
+
 float Acceleration_angle[2];
 float Gyro_angle[2];
 float Total_angle[2];
+
+float Acceleration_angle_filt[2];
+float Gyro_angle_filt[2];
+float Total_angle_filt[2];
 
 float elapsedTime, time, timePrev;
 int i;
@@ -27,8 +34,8 @@ float rad_to_deg = 180/3.141592654;
 float timeStartRead;
 
 
-double throttle=1200; //initial value of throttle to the motors
-float desired_angle = -20; //This is the angle in which we whant the
+double throttle=1550; //initial value of throttle to the motors
+float desired_angle = 0; //This is the angle in which we whant the
                          //balance to stay steady
 
 float PID, pwmLeft, pwmRight, error, previous_error;
@@ -36,9 +43,9 @@ float pid_p=0;
 float pid_i=0;
 float pid_d=0;
 /////////////////PID CONSTANTS/////////////////
-double kp=5.5;//3.55
-double ki=0.0001;//0.003
-double kd=0.15;//2.05
+double kp=1.8;//3.55
+double ki=0.1;//0.003
+double kd=0.7;//2.05
 
 double pid_Kp = kp;//0.6*1.25
 double pid_Ki = ki;//pid_Kp*2 / 1000 0.006;    // ms
@@ -71,8 +78,14 @@ const int wireTimeout = 3000;
 */
 
 
+SimpleLowPass filterObjAccelAngle1;
+SimpleLowPass filterObjAccelAngle2;
 
 void setup() {
+
+  filterObjAccelAngle1.K = 0.3;
+  filterObjAccelAngle2.K = 0.3;
+
   Wire.begin(); //begin the wire comunication
       Wire.setWireTimeout(wireTimeout /* us */, true /* reset_on_timeout */);
       Wire.setClock(400000);
@@ -80,7 +93,7 @@ void setup() {
   Wire.write(0x6B);
   Wire.write(0);
   Wire.endTransmission(true);
-  Serial.begin(250000);
+  Serial.begin(115500);
 
   bldcEsc.attach(ESC_PIN);
   bldcEsc.writeMicroseconds(PWM_MIN);
@@ -89,12 +102,13 @@ void setup() {
   //********** 100 times ********* //
   // ******** get angle in loop ********//
   // ****** to prepare mpu6050 *****//
-  for (int i = 0; i < 5000; i++) {
-   // getAngle();
+  for (int i = 0; i < 3000; i++) {
+    getAngle();
+    getAngleFilt();
   }
 
 
- // delay(4000);
+  delay(1000);
 
   time = millis();
 
@@ -118,10 +132,9 @@ if (!FLAGS_WORK::startWorking) return;
   /* ========= read angle ============= */
 
   getAngle();
+  getAngleFilt();
 
-  #ifdef DEBUG_WORK
-  Serial.print("angle:"); Serial.println(Total_angle[1]);
-  #endif
+
 
 #ifdef DEBUG_TIMERS
   Serial.print(F("elapsedGetAngle: ")); Serial.println(millis() - timeStartRead);
@@ -131,8 +144,9 @@ if (!FLAGS_WORK::startWorking) return;
  //************** if (Total_angle[1] > 40) { stop(); return; } **********/
 
   /****** START -70, hor = 0 ****/
-  error = desired_angle - Total_angle[1];//Total_angle[1] - desired_angle;
-
+  //error = desired_angle - Total_angle[1];//Total_angle[1] - desired_angle;
+ // error = Total_angle[1] - desired_angle;
+  error = Total_angle_filt[1] - desired_angle;
   /*
 pid_p = kp*error;
 if(-3 <error <3)
@@ -155,15 +169,23 @@ pwmLeft = throttle + PID;
 
   if (pwmLeft < 1200) {
     pwmLeft = 1200;
-  } else if (pwmLeft > 1450) {
-    pwmLeft = 1450;
+  } else if (pwmLeft > 1700) {
+    pwmLeft = 1700;
   }
  
+ // pwmLeft = 1614;
   bldcEsc.writeMicroseconds(pwmLeft);
   previous_error = error;
 
-  #ifdef DEBUG_WORK
+ // #ifdef DEBUG_WORK
  // Serial.print("pwm_pid_err: "); Serial.print(pwmLeft); Serial.print(' '); Serial.print(EXPR_VARS::control_signal); Serial.print(' '); Serial.println(error);
+ // #endif
+
+    #ifdef DEBUG_WORK
+  Serial.print("angle:"); Serial.print(Total_angle[1]); Serial.print(", "); 
+  Serial.print("angle_filt:"); Serial.print(Total_angle_filt[1]); Serial.print(", "); 
+  Serial.print("pid:"); Serial.print(EXPR_VARS::control_signal); Serial.print(", ");
+  Serial.print("pwmLeft:"); Serial.println(pwmLeft);
   #endif
 
 }
@@ -292,3 +314,50 @@ void getAngle()
    /*---Y axis angle---*/
    Total_angle[1] = 0.98 *(Total_angle[1] + Gyro_angle[1]*elapsedTime) + 0.02*Acceleration_angle[1];
 }
+
+
+
+
+
+float filt(float pot){
+  static const float K = 0.25;
+  static float val = 0;
+  val = val*(1-K) + pot*K;
+  return val;
+}
+
+
+void getAngleFilt()
+{
+  static SimpleLowPass filter1(0.26);
+  static SimpleLowPass filter2(0.26);
+  static SimpleLowPass filter3(0.26);
+   /* ========= read angle ============= */
+
+  Acc_rawX_filt = filter1.filter(Acc_rawX);
+  Acc_rawY_filt = filter2.filter(Acc_rawY);
+  Acc_rawZ_filt = filter3.filter(Acc_rawZ);
+
+  Acceleration_angle_filt[0] = atan((Acc_rawY_filt/16384.0)/sqrt(pow((Acc_rawX_filt/16384.0),2) + pow((Acc_rawZ_filt/16384.0),2)))*rad_to_deg;
+  Acceleration_angle_filt[1] = atan(-1*(Acc_rawX_filt/16384.0)/sqrt(pow((Acc_rawY_filt/16384.0),2) + pow((Acc_rawZ_filt/16384.0),2)))*rad_to_deg;
+
+ /*---X---*/
+//  Acceleration_angle[0] = atan((Acc_rawY/16384.0)/sqrt(pow((Acc_rawX/16384.0),2) + pow((Acc_rawZ/16384.0),2)))*rad_to_deg;
+  /*---Y---*/
+//  Acceleration_angle[1] = atan(-1*(Acc_rawX/16384.0)/sqrt(pow((Acc_rawY/16384.0),2) + pow((Acc_rawZ/16384.0),2)))*rad_to_deg;
+
+ // Acceleration_angle_filt[0] = filter1.filter(Acceleration_angle[0]);
+ // Acceleration_angle_filt[1] = filter2.filter(Acceleration_angle[1]);
+
+/*---X axis angle---*/
+//   Total_angle_filt[0] = 0.98 *(Total_angle_filt[0] + Gyro_angle[0]*elapsedTime) + 0.02*Acceleration_angle_filt[0];
+   /*---Y axis angle---*/
+ //  Total_angle_filt[1] = 0.98 *(Total_angle_filt[1] + Gyro_angle[1]*elapsedTime) + 0.02*Acceleration_angle_filt[1];
+
+   //Total_angle_filt[0] = filterObjAccelAngle1.filter(Total_angle[0]);
+  // Total_angle_filt[1] = filterObjAccelAngle1.filter(Total_angle[1]);
+ // Total_angle_filt[1] = filt(Total_angle[1]);
+ Total_angle_filt[1] = 0.98 *(Total_angle_filt[1] + Gyro_angle[1]*elapsedTime) + 0.02*Acceleration_angle_filt[1];
+}
+
+
