@@ -2,6 +2,9 @@
 //#include <MPU6050.h>
 
 #include "bldc_api.h"
+#include "filters.h"
+
+
 const long serialFreq = 115200;
 
 /*** MPU ***/
@@ -30,10 +33,22 @@ int step = 5;
 int minStart = 1450;
 const float filtK = 0.26;
 long last_time = 0;
-long time_step = 500;
+long time_step = 50;
 
+
+float elapsedTime, time, timePrev;
+const int wireTimeout = 3000;
 
 void setup() {
+
+  Wire.begin(); //begin the wire comunication
+      Wire.setWireTimeout(wireTimeout /* us */, true /* reset_on_timeout */);
+      Wire.setClock(400000);
+  Wire.beginTransmission(0x68);
+  Wire.write(0x6B);
+  Wire.write(0);
+  Wire.endTransmission(true);
+
   // put your setup code here, to run once:
   Serial.begin(serialFreq);
   SERVO_DATA::servoAPI = new BLDC_API(SERVO_DATA::ESC_PIN, 
@@ -52,6 +67,10 @@ void loop() {
   //SERVO_DATA::servoAPI->manualCalibration();
   if (Serial.available() > 0){ switchWorking(Serial.read()); } // read command to stop/start
 
+  timePrev = time;  // the previous time is stored before the actual time read
+  time = millis();  // actual time read
+  elapsedTime = (time - timePrev) / 1000.0; 
+
   if (changePWM) {
     if (currPWM >= 1640) currPWM = 1640;
     SERVO_DATA::servoAPI->writeMicroseconds(currPWM);
@@ -60,10 +79,11 @@ void loop() {
   getAngle();
   getAngleFilt();
 
-  if (millis() - last_time > time_step) {
-     Serial.print("angle:"); Serial.print(Total_angle[1]); Serial.print(", "); 
+  if ((millis() - last_time) > time_step) {
+     Serial.print("angle1:"); Serial.print(Total_angle[1]); Serial.print(", "); 
+     Serial.print("angle2:"); Serial.print(Total_angle[0]); Serial.print(", "); 
      Serial.print("angle_filt:"); Serial.print(Total_angle_filt[1]); Serial.print(", "); 
-     Serial.print("currPWM":); Serial.println(currPWM);
+     Serial.print("currPWM:"); Serial.println(currPWM);
      last_time = millis();
   }
 
@@ -82,13 +102,14 @@ void switchWorking(int ch) {
         break;
       case '2':
         changePWM = true;
-        currPWM -= step;
+        if (currPWM > 1200) currPWM -= step;
+        break;
       case '3': // SET MIN START
         changePWM = true;
         currPWM = minStart;
         break;
       case '0': // STOP STOP STOP
-        changePWN = true;
+        changePWM = true;
         currPWM = SERVO_DATA::ESC_MIL_MIN;
         SERVO_DATA::servoAPI->writeMicroseconds(currPWM);
         break;
@@ -104,8 +125,8 @@ void switchWorking(int ch) {
 
 
 void smoothStop() {
-  static const long step_time_decrease = 100;
-  static const int stop_pwm = 1350;
+  static const long step_time_decrease = 250;
+  static const int stop_pwm = 1300;
   static const int step_pwm_decrease = 5;
   static long last_time_decrease;
 
@@ -120,14 +141,15 @@ void smoothStop() {
   {
     if (Serial.available() > 0){ switchWorking(Serial.read()); } 
 
-    if (millis() - last_time_decrease > step_time_decrease)
+    if ((millis() - last_time_decrease) > step_time_decrease)
     {
+      Serial.println("Decrease");
       currPWM -= step_pwm_decrease;
       SERVO_DATA::servoAPI->writeMicroseconds(currPWM);
       last_time_decrease = millis();
       
       if (currPWM < stop_pwm){
-        currPWM = ESC_MIL_MIN;
+        currPWM = SERVO_DATA::ESC_MIL_MIN;
         SERVO_DATA::servoAPI->writeMicroseconds(currPWM);
         return;
       }
@@ -139,7 +161,7 @@ void smoothStop() {
 
 
 
-inline void getAngle()
+inline void getAngle1()
 {
    /* ========= read angle ============= */
   Wire.beginTransmission(0x68);
@@ -192,7 +214,7 @@ inline void getAngle()
 
 
 
-void getAngleFilt()
+void getAngleFilt1()
 {
   static SimpleLowPass filter1(0.26);
   static SimpleLowPass filter2(0.26);
@@ -230,7 +252,7 @@ void getAngleFilt()
 
 
 
-void getAngle1()
+void getAngle()
 {
    /* ========= read angle ============= */
   Wire.beginTransmission(0x68);
@@ -273,7 +295,7 @@ void getAngle1()
 
 
 
-void getAngleFilt1()
+void getAngleFilt()
 {
   static SimpleLowPass filter1(filtK);
   static SimpleLowPass filter2(filtK);

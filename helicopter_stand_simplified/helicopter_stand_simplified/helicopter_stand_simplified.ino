@@ -6,7 +6,7 @@
 
 //#define DEBUG_WORK
 //#define DEBUG_TIMERS
-#define DEBUG_WRITE_BYTE
+//#define DEBUG_WRITE_BYTE
 
 
 const byte ESC_PIN = 9;
@@ -45,9 +45,9 @@ float pid_p=0;
 float pid_i=0;
 float pid_d=0;
 /////////////////PID CONSTANTS/////////////////
-const double kp=1.8;//3.55
-const double ki=0.1;//0.003
-const double kd=0.7;//2.05
+const double kp=1.5;//3.55
+const double ki=0.035;//0.003
+const double kd=0.35;//2.05
 
 const double pid_Kp = kp;//0.6*1.25
 const double pid_Ki = ki;//pid_Kp*2 / 1000 0.006;    // ms
@@ -67,7 +67,7 @@ const double max_PID_control = 800;
 
 
 namespace FLAGS_WORK {
-  bool startWorking = true;  
+  bool startWorking = false;  
   bool HARDWARE_STATUS = false;
 }
 const int wireTimeout = 3000;
@@ -149,6 +149,12 @@ if (!FLAGS_WORK::startWorking) return;
   //error = desired_angle - Total_angle[1];//Total_angle[1] - desired_angle;
  // error = Total_angle[1] - desired_angle;
   error = Total_angle_filt[1] - desired_angle;
+  //error = Total_angle[1] - desired_angle;
+  if (error > 50 || error < -50) {
+    stop();
+    return;
+  }
+ //error = desired_angle - Total_angle_filt[1];
   /*
 pid_p = kp*error;
 if(-3 <error <3)
@@ -171,8 +177,8 @@ pwmLeft = throttle + PID;
 
   if (pwmLeft < 1200) {
     pwmLeft = 1200;
-  } else if (pwmLeft > 1700) {
-    pwmLeft = 1700;
+  } else if (pwmLeft > 1650) {
+    pwmLeft = 1650;
   }
  
  // pwmLeft = 1614;
@@ -341,9 +347,9 @@ float filt(float pot){
 
 void getAngleFilt()
 {
-  static SimpleLowPass filter1(0.26);
-  static SimpleLowPass filter2(0.26);
-  static SimpleLowPass filter3(0.26);
+  static SimpleLowPass filter1(0.3);
+  static SimpleLowPass filter2(0.3);
+  static SimpleLowPass filter3(0.3);
    /* ========= read angle ============= */
 
   Acc_rawX_filt = filter1.filter(Acc_rawX);
