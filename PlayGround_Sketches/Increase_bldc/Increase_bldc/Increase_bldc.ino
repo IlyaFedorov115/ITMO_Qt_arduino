@@ -72,7 +72,7 @@ void loop() {
   elapsedTime = (time - timePrev) / 1000.0; 
 
   if (changePWM) {
-    if (currPWM >= 1640) currPWM = 1640;
+    if (currPWM >= 1600) currPWM = 1600;
     SERVO_DATA::servoAPI->writeMicroseconds(currPWM);
     changePWM = false;
   }
@@ -102,7 +102,7 @@ void switchWorking(int ch) {
         break;
       case '2':
         changePWM = true;
-        if (currPWM > 1200) currPWM -= step;
+        if (currPWM > (1200+2*step)) currPWM -= step;
         break;
       case '3': // SET MIN START
         changePWM = true;

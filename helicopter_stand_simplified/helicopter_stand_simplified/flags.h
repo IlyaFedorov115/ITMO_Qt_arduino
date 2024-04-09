@@ -26,12 +26,12 @@ const float COEF_ACCEL_COMP = 0.98;   // часть акселерометра �
 
 
 // ================== КОНСТАНТЫ ДЛЯ РАБОТЫ ПИД ================== //
-const double throttle=1550;     //initial value of throttle
+const double throttle= 1470;// 1550;     //initial value of throttle
 const float desired_angle = 0; // target angle
 
-const double pid_Kp = 1.5;//3.55
+const double pid_Kp = 1.8;//3.55
 const double pid_Ki = 0.035;//0.003
-const double pid_Kd = 0.35;//2.05
+const double pid_Kd = 0.55;//2.05
 
 namespace EXPR_VARS {
   double total_integral = 0;
