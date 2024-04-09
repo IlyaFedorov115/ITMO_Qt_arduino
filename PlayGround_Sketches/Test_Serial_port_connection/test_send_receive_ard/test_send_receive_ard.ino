@@ -83,6 +83,9 @@ void loop() {
     // read command to stop/start
   if (Serial.available() > 0){ switchWorking(Serial.read()); } 
 
+   // was set flag to do nothing STOP
+  if (!FLAGS_WORK::startWorking) return;
+
   timeReadAngle = micros();
 
   getAngle();
@@ -150,7 +153,7 @@ void switchWorking(int ch) {
       case STOP_BUTTON:
         if (!FLAGS_WORK::startWorking ) return;  // already stop
         FLAGS_WORK::startWorking = false;
-        if(DEBUG_SWITCH_GET) Serial.println("GET STOP");
+        //if(DEBUG_SWITCH_GET) Serial.println("GET STOP");
         break;
       case PANIC_BUTTON1:                       // PANIC STOP BLDC !!!!
       case PANIC_BUTTON2:
