@@ -11,7 +11,7 @@
 
 // ======================== Флаги вывода ======================== //
 
-//#define DEBUG_WORK        // лог углов, пид через Serial.print (для отладки, 2.5 мс) 
+//#define DEBUG_WORK        // лог углов, пид через Serial.print (для отладки, 2.5 мс) Сильно ухудшает
 //#define DEBUG_TIMERS      // лог шага времени затрат на вычисление угла
 //#define DEBUG_WRITE_BYTE  // вывод байтами (докинуть нужное)
 //#define DEBUG_PID         // вывод ПИД инфы (перенесется в предыдущий)
@@ -26,7 +26,7 @@ const float COEF_ACCEL_COMP = 0.98;   // часть акселерометра �
 
 
 // ================== КОНСТАНТЫ ДЛЯ РАБОТЫ ПИД ================== //
-const double throttle= 1470;// 1550;     //initial value of throttle
+const double throttle= 1510;// 1470 1550; -long     //initial value of throttle
 const float desired_angle = 0; // target angle
 
 const double pid_Kp = 1.8;//3.55
@@ -38,14 +38,14 @@ namespace EXPR_VARS {
   double last_error = 0;
   double control_signal = 1200;
   void resetPid(){
-    total_integral = 0; last_error = 0; control_signal = 1200;
+    total_integral = 0; last_error = 0; control_signal = 1200-throttle;
   }
 }
 
 const double min_PID_control = -800;      // min and max PID result
 const double max_PID_control = 800;       // 1200 + 800 and 2000 - 800. 
-
-
+const float OFFSET_ANGLE = 1.0;           // смещение просто к конечному углу
+const float FILTER_COEF_ACCEL = 0.3;      // фильтрация сырых
 
 // !!!!!!! ====================================== Безопасность и работа ====================================== !!!!!!! //
 
@@ -54,7 +54,7 @@ const bool USE_FILT_ANGLE = true;
 
 
 const float PWM_SEND_MIN = 1200.0;   // лимиты конечной отправки
-const float PWM_SEND_MAX = 1650.0;   // подаваемые на двигатель
+const float PWM_SEND_MAX = 1580.0;   // подаваемые на двигатель
 
 const float ERROR_ANGLE_LIMIT = 50.0; // лимит ошибки угла. Если превышен, то стоп
                                       // может быть либо из-за некорректных показаний датчика, либо из-за 
@@ -70,8 +70,8 @@ const char RESET_PID_BUTTON = '3'; // обнулить пид (интеграт�
 
 
 const long SMOOTH_STEP_TIME_DECREASE = 200;    // ms для плавной остановки
-const int SMOOTH_STOP_PWM = 1350;             // pwm до которого уменьшение, потом стоп
+const int SMOOTH_STOP_PWM = 1300;             // pwm до которого уменьшение, потом стоп     (was 1350)
 const int SMOOTH_PWM_DECREASE = 5;            // насколько уменьшается каждый цикл
-const int SMOOTH_MAX_LIMIT = 1600;            // если pwm текущий больше этого, то вернуться к этому значению
+const int SMOOTH_MAX_LIMIT = 1500;            // если pwm текущий больше этого, то вернуться к этому значению (was 1600)
 bool SMOOTH_SET = false;                      // smooth on
 

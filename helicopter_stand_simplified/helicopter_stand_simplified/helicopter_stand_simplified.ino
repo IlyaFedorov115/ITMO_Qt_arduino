@@ -36,7 +36,7 @@ namespace FLAGS_WORK {
   bool HARDWARE_STATUS = false;
 }
 const int wireTimeout = 3000;
-
+const long serialFreq = 250000;
 
 
 /*
@@ -51,7 +51,7 @@ void setup() {
   Wire.write(0x6B);
   Wire.write(0);
   Wire.endTransmission(true);
-  Serial.begin(115500);
+  Serial.begin(serialFreq);
 
   // set bldc
   bldcEsc.attach(ESC_PIN);
@@ -119,6 +119,7 @@ void loop() {
     error = (CURR_ANGLE_INCREASE) ? (desired_angle - Total_angle[1]) : (Total_angle[1] - desired_angle);
   } // error = Total_angle[1] - desired_angle;
   
+  //error += OFFSET_ANGLE;
 
 
   /* =========================== SAFETY SAFETY =========================== */
@@ -184,7 +185,7 @@ void switchWorking(int ch) {
         break;
       case PANIC_BUTTON1:                       // PANIC STOP BLDC !!!!
       case PANIC_BUTTON2:
-        if (!FLAGS_WORK::startWorking) return; // already stop
+        //if (!FLAGS_WORK::startWorking) return; // already stop
         stopPANIC();
         FLAGS_WORK::startWorking = SMOOTH_SET = false;
         break;
@@ -210,10 +211,9 @@ void smoothStop() {     // "мягкий стоп"
   FLAGS_WORK::startWorking = false;
   SMOOTH_SET = true;
 
-  int currPWM = (int)EXPR_VARS::control_signal;
+  int currPWM = (int)EXPR_VARS::control_signal + throttle;
   // start loop (maybe switchWorking make with return to break loop)
   last_time_decrease = millis();
-
   if (currPWM > SMOOTH_MAX_LIMIT) {
     currPWM = SMOOTH_MAX_LIMIT;
     bldcEsc.writeMicroseconds(currPWM);
@@ -222,7 +222,7 @@ void smoothStop() {     // "мягкий стоп"
   while (currPWM > SMOOTH_STOP_PWM) {
     if (Serial.available() > 0){ 
       switchWorking(Serial.read()); 
-      if (currPWM > EXPR_VARS::control_signal || !SMOOTH_SET) break;    // set PANIC while smooth
+      if (!SMOOTH_SET) break;    // set PANIC while smooth || currPWM > (EXPR_VARS::control_signal+throttle)
     } 
     
     if ((millis() - last_time_decrease) > SMOOTH_STEP_TIME_DECREASE)
@@ -344,9 +344,9 @@ inline void getAngle()
 
 void getAngleFilt()
 {
-  static SimpleLowPass filter1(0.3);
-  static SimpleLowPass filter2(0.3);
-  static SimpleLowPass filter3(0.3);
+  static SimpleLowPass filter1(FILTER_COEF_ACCEL);
+  static SimpleLowPass filter2(FILTER_COEF_ACCEL);
+  static SimpleLowPass filter3(FILTER_COEF_ACCEL);
 
   Acc_rawX_filt = filter1.filter(Acc_rawX);
   Acc_rawY_filt = filter2.filter(Acc_rawY);
@@ -360,6 +360,7 @@ void getAngleFilt()
  //  Total_angle_filt[1] = 0.98 *(Total_angle_filt[1] + Gyro_angle[1]*elapsedTime) + 0.02*Acceleration_angle_filt[1]; /*---Y axis angle---*/
   //Total_angle_filt[0] = filter1.filter(Total_angle[0]);
 
+  /**** !!!!! НЕ ДОБАВЛЯТЬ OFFSET В ИТОГОВЫЙ ФИЛЬТР ИНАЧЕ УГОЛ СОВСЕМ ДРУГОЙ 90 вместо +40 ***/
  Total_angle_filt[1] = COEF_ACCEL_COMP*(Total_angle_filt[1] + Gyro_angle[1]*elapsedTime) + (1-COEF_ACCEL_COMP)*Acceleration_angle_filt[1];
 }
 
