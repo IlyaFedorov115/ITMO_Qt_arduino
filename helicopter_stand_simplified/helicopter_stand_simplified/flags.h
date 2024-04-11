@@ -20,8 +20,14 @@
 // ====================== КОНСТАНТЫ И СМЕЩЕНИЯ ДЛЯ MPU6050 ====================== //
 //int16_t offsetMPU[6] = {-1372,	857,	887,	3,	-40,	-52};//{-3761, 1339, -3009, 45, -54, 44}; // my 2
 const int16_t offsetMPU[6] = {-600,	-4997,	1185,	127,	27,	-99}; // 3 - main
+const float AccErrorX_calc = -0.01;
+const float AccErrorY_calc = -3.24;
+const float GyroErrorX_calc = -0.36;
+const float GyroErrorY_calc = 2.27;
+const float GyroErrorZ_calc = -1.64;
 
-const float COEF_ACCEL_COMP = 0.98;   // часть акселерометра в комплементарном фильтре
+
+const float COEF_ACCEL_COMP = 0.98;   // часть гиро в комплементарном фильтре
 
 
 
