@@ -3,6 +3,9 @@
 
 #define MAX_DATA_POINTS 20
 
+// https://github.com/sebnil/Moving-Avarage-Filter--Arduino-Library-/blob/master/src/MovingAverageFilter.h
+
+
 class MovingAverageFilter
 {
 public:

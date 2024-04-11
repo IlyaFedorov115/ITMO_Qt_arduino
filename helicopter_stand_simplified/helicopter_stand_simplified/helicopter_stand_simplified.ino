@@ -39,6 +39,15 @@ const int wireTimeout = 3000;
 const long serialFreq = 250000;
 
 
+union FloatType {
+  byte buf[4];
+  float val;
+};
+
+FloatType sendData[5];
+uint8_t sendBuffer[sizeof(sendData)];
+
+
 /*
     ======================================== SETUP FUNCTION ========================================
 */
@@ -60,6 +69,7 @@ void setup() {
   // ******** get angle in loop ********//
   // ****** to prepare mpu6050 *****//
   // ****** check is ok ****** //
+  Total_angle[0] = Total_angle_filt[0] = 0.0;
   for (int i = 0; i < 3000; i++) {
     getAngle();
     getAngleFilt();
@@ -157,10 +167,18 @@ void loop() {
   #endif
 
   #ifdef DEBUG_WRITE_BYTE
+  /*
   Serial.write((char*)&Total_angle[1], sizeof(Total_angle[1])); Serial.write(',');
   Serial.write((char*)&Total_angle_filt[1], sizeof(Total_angle_filt[1])); Serial.write(',');
   Serial.write((char*)&EXPR_VARS::control_signal, sizeof(EXPR_VARS::control_signal)); Serial.write(',');
   Serial.write((char*)&pwmLeft, sizeof(pwmLeft)); Serial.write('\n');
+  */
+  // maybe 1 in 5 times, not every itteration
+  sendData[0].val = Total_angle[1]; sendData[1].val = Total_angle_filt[1]; sendData[2].val = EXPR_VARS::control_signal; 
+  sendData[3].val = EXPR_VARS::total_integral; sendData[4].val = elapsedTime*1000;
+  memcpy(sendBuffer, (void*)sendData, sizeof(sendBuffer));
+  Serial.write('#'); Serial.write('#');
+  Serial.write(sendBuffer, sizeof(sendBuffer));
   #endif
 
 }
@@ -334,7 +352,7 @@ inline void getAngle()
   Gyro_angle[0] = Gyr_rawX/131.0;   /*---X---*/
   Gyro_angle[1] = Gyr_rawY/131.0;    /*---Y---*/
 
-  Total_angle[0] = COEF_ACCEL_COMP *(Total_angle[0] + Gyro_angle[0]*elapsedTime) + (1-COEF_ACCEL_COMP) * Acceleration_angle[0];  /*---X axis angle---*/
+  //Total_angle[0] = COEF_ACCEL_COMP *(Total_angle[0] + Gyro_angle[0]*elapsedTime) + (1-COEF_ACCEL_COMP) * Acceleration_angle[0];  /*---X axis angle---*/
   Total_angle[1] = COEF_ACCEL_COMP *(Total_angle[1] + Gyro_angle[1]*elapsedTime) + (1-COEF_ACCEL_COMP) * Acceleration_angle[1];  /*---Y axis angle---*/
 }
 

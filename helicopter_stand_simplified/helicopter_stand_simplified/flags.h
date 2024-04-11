@@ -13,7 +13,7 @@
 
 //#define DEBUG_WORK        // лог углов, пид через Serial.print (для отладки, 2.5 мс) Сильно ухудшает
 //#define DEBUG_TIMERS      // лог шага времени затрат на вычисление угла
-//#define DEBUG_WRITE_BYTE  // вывод байтами (докинуть нужное)
+#define DEBUG_WRITE_BYTE  // вывод байтами (докинуть нужное)
 //#define DEBUG_PID         // вывод ПИД инфы (перенесется в предыдущий)
 
 
@@ -26,12 +26,12 @@ const float COEF_ACCEL_COMP = 0.98;   // часть акселерометра �
 
 
 // ================== КОНСТАНТЫ ДЛЯ РАБОТЫ ПИД ================== //
-const double throttle= 1510;// 1470 1550; -long     //initial value of throttle
+const double throttle= 1515;// 1470 1550; -long     //initial value of throttle
 const float desired_angle = 0; // target angle
 
-const double pid_Kp = 1.8;//3.55
-const double pid_Ki = 0.035;//0.003
-const double pid_Kd = 0.55;//2.05
+const double pid_Kp = 0.7;//3.55
+const double pid_Ki = 0.06;//0.003
+const double pid_Kd = 0.65;//2.05
 
 namespace EXPR_VARS {
   double total_integral = 0;
@@ -45,9 +45,13 @@ namespace EXPR_VARS {
 const double min_PID_control = -800;      // min and max PID result
 const double max_PID_control = 800;       // 1200 + 800 and 2000 - 800. 
 const float OFFSET_ANGLE = 1.0;           // смещение просто к конечному углу
-const float FILTER_COEF_ACCEL = 0.3;      // фильтрация сырых
+const float FILTER_COEF_ACCEL = 0.1;      // фильтрация сырых
 
 // !!!!!!! ====================================== Безопасность и работа ====================================== !!!!!!! //
+
+/*
+ DELETE 0th element of anles
+*/
 
 const bool CURR_ANGLE_INCREASE = false; // Угол mpu увеличивается или уменьшается (+40 до 0 -> false)
 const bool USE_FILT_ANGLE = true; 
