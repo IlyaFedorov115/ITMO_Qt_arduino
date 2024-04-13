@@ -20,24 +20,30 @@
 // ====================== КОНСТАНТЫ И СМЕЩЕНИЯ ДЛЯ MPU6050 ====================== //
 //int16_t offsetMPU[6] = {-1372,	857,	887,	3,	-40,	-52};//{-3761, 1339, -3009, 45, -54, 44}; // my 2
 const int16_t offsetMPU[6] = {-600,	-4997,	1185,	127,	27,	-99}; // 3 - main
-const float AccErrorX_calc = -0.01;
-const float AccErrorY_calc = -3.24;
-const float GyroErrorX_calc = -0.36;
-const float GyroErrorY_calc = 2.27;
-const float GyroErrorZ_calc = -1.64;
+const float AccErrorX_calc = -0.01;// * 0;
+const float AccErrorY_calc = -3.24;//  * 0;
+const float GyroErrorX_calc = -0.36;//  * 0;
+const float GyroErrorY_calc = 2.27;//  * 0;
+const float GyroErrorZ_calc = -1.64;//  * 0;
+
+const float AccErrorX_calcFilt = -0.01;// * 0;
+const float AccErrorY_calcFilt = -3.24;//  * 0;
+const float GyroErrorX_calcFilt = -0.36;//  * 0;
+const float GyroErrorY_calcFilt = 2.27;//  * 0;
+const float GyroErrorZ_calcFilt = -1.64;//  * 0;
 
 
-const float COEF_ACCEL_COMP = 0.98;   // часть гиро в комплементарном фильтре
+const float COEF_ACCEL_COMP = 0.985;   // часть гиро в комплементарном фильтре
 
 
 
 // ================== КОНСТАНТЫ ДЛЯ РАБОТЫ ПИД ================== //
-const double throttle= 1515;// 1470 1550; -long     //initial value of throttle
-const float desired_angle = 0; // target angle
+const double throttle= 1510;// 1470 1550; -long     //initial value of throttle
+const float desired_angle = 0; // target angle  better use 5-6 whant
 
-const double pid_Kp = 0.7;//3.55
-const double pid_Ki = 0.06;//0.003
-const double pid_Kd = 0.65;//2.05
+const double pid_Kp = 0.90;//3.55
+const double pid_Ki = 0.040;//0.003
+const double pid_Kd = 0.30;//2.05
 
 namespace EXPR_VARS {
   double total_integral = 0;
@@ -46,18 +52,23 @@ namespace EXPR_VARS {
   void resetPid(){
     total_integral = 0; last_error = 0; control_signal = 1200-throttle;
   }
+
+  const int LOG_EVERY_TIMES = 2;
+  unsigned count_2_log = LOG_EVERY_TIMES;
+
 }
 
 const double min_PID_control = -800;      // min and max PID result
 const double max_PID_control = 800;       // 1200 + 800 and 2000 - 800. 
 const float OFFSET_ANGLE = 1.0;           // смещение просто к конечному углу
-const float FILTER_COEF_ACCEL = 0.1;      // фильтрация сырых
+const float FILTER_COEF_ACCEL = 0.12;      // фильтрация сырых
 
 // !!!!!!! ====================================== Безопасность и работа ====================================== !!!!!!! //
 
 /*
  DELETE 0th element of anles
 */
+
 
 const bool CURR_ANGLE_INCREASE = false; // Угол mpu увеличивается или уменьшается (+40 до 0 -> false)
 const bool USE_FILT_ANGLE = true; 

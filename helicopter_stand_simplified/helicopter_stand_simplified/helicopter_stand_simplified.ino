@@ -174,11 +174,16 @@ void loop() {
   Serial.write((char*)&pwmLeft, sizeof(pwmLeft)); Serial.write('\n');
   */
   // maybe 1 in 5 times, not every itteration
-  sendData[0].val = Total_angle[1]; sendData[1].val = Total_angle_filt[1]; sendData[2].val = EXPR_VARS::control_signal; 
-  sendData[3].val = EXPR_VARS::total_integral; sendData[4].val = elapsedTime*1000;
-  memcpy(sendBuffer, (void*)sendData, sizeof(sendBuffer));
-  Serial.write('#'); Serial.write('#');
-  Serial.write(sendBuffer, sizeof(sendBuffer));
+  if (EXPR_VARS::count_2_log != 0) EXPR_VARS::count_2_log--;
+  else
+  {
+    sendData[0].val = Total_angle[1]; sendData[1].val = Total_angle_filt[1]; sendData[2].val = EXPR_VARS::control_signal; 
+    sendData[3].val = EXPR_VARS::total_integral; sendData[4].val = elapsedTime*1000;
+    memcpy(sendBuffer, (void*)sendData, sizeof(sendBuffer));
+    Serial.write('#'); Serial.write('#');
+    Serial.write(sendBuffer, sizeof(sendBuffer));
+    EXPR_VARS::count_2_log = EXPR_VARS::LOG_EVERY_TIMES;
+  }
   #endif
 
 }
@@ -337,6 +342,10 @@ inline void getAngle()
   Acceleration_angle[0] = atan((Acc_rawY/16384.0)/sqrt((Acc_rawX/16384.0)*(Acc_rawX/16384.0) + (Acc_rawZ/16384.0)*(Acc_rawZ/16384.0)))*rad_to_deg;  /*---X---*/
   Acceleration_angle[1] = atan(-1*(Acc_rawX/16384.0)/sqrt((Acc_rawY/16384.0)*(Acc_rawY/16384.0) + (Acc_rawZ/16384.0)*(Acc_rawZ/16384.0)))*rad_to_deg; /*---Y---*/
 
+
+  Acceleration_angle[0] -= AccErrorX_calc;
+  Acceleration_angle[1] -= AccErrorY_calc;
+
   Wire.beginTransmission(0x68);
   Wire.write(0x43); //Gyro data first adress
   Wire.endTransmission(false);
@@ -351,6 +360,9 @@ inline void getAngle()
 
   Gyro_angle[0] = Gyr_rawX/131.0;   /*---X---*/
   Gyro_angle[1] = Gyr_rawY/131.0;    /*---Y---*/
+
+  Gyro_angle[0] -= GyroErrorX_calc;
+  Gyro_angle[1] -= GyroErrorY_calc;
 
   //Total_angle[0] = COEF_ACCEL_COMP *(Total_angle[0] + Gyro_angle[0]*elapsedTime) + (1-COEF_ACCEL_COMP) * Acceleration_angle[0];  /*---X axis angle---*/
   Total_angle[1] = COEF_ACCEL_COMP *(Total_angle[1] + Gyro_angle[1]*elapsedTime) + (1-COEF_ACCEL_COMP) * Acceleration_angle[1];  /*---Y axis angle---*/
@@ -372,6 +384,9 @@ void getAngleFilt()
 
   Acceleration_angle_filt[0] = atan((Acc_rawY_filt/16384.0)/sqrt((Acc_rawX_filt/16384.0)*(Acc_rawX_filt/16384.0) + (Acc_rawZ_filt/16384.0)*(Acc_rawZ_filt/16384.0)))*rad_to_deg;
   Acceleration_angle_filt[1] = atan(-1*(Acc_rawX_filt/16384.0)/sqrt((Acc_rawY_filt/16384.0)*(Acc_rawY_filt/16384.0) + (Acc_rawZ_filt/16384.0)*(Acc_rawZ_filt/16384.0)))*rad_to_deg;
+
+  Acceleration_angle_filt[0] -= AccErrorX_calcFilt;
+  Acceleration_angle_filt[1] -= AccErrorY_calcFilt;
  // Acceleration_angle_filt[0] = filter1.filter(Acceleration_angle[0]);
  // Acceleration_angle_filt[1] = filter2.filter(Acceleration_angle[1]);
   //   Total_angle_filt[0] = 0.98 *(Total_angle_filt[0] + Gyro_angle[0]*elapsedTime) + 0.02*Acceleration_angle_filt[0]; /*---X axis angle---*/
