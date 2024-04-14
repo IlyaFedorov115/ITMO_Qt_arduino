@@ -33,17 +33,17 @@ const float GyroErrorY_calcFilt = 2.27;//  * 0;
 const float GyroErrorZ_calcFilt = -1.64;//  * 0;
 
 
-const float COEF_ACCEL_COMP = 0.985;   // часть гиро в комплементарном фильтре
+const float COEF_ACCEL_COMP = 0.98;   // часть гиро в комплементарном фильтре
 
 
 
 // ================== КОНСТАНТЫ ДЛЯ РАБОТЫ ПИД ================== //
-const double throttle= 1510;// 1470 1550; -long     //initial value of throttle
+const double throttle= 1500;// 1470 1550; -long     //initial value of throttle
 const float desired_angle = 0; // target angle  better use 5-6 whant
 
-const double pid_Kp = 0.90;//3.55
-const double pid_Ki = 0.040;//0.003
-const double pid_Kd = 0.30;//2.05
+const double pid_Kp = 1.1;//3.55
+const double pid_Ki = 0.09;//0.003
+const double pid_Kd = 0.05;//2.05
 
 namespace EXPR_VARS {
   double total_integral = 0;
@@ -53,15 +53,15 @@ namespace EXPR_VARS {
     total_integral = 0; last_error = 0; control_signal = 1200-throttle;
   }
 
-  const int LOG_EVERY_TIMES = 2;
+  const int LOG_EVERY_TIMES = 0;
   unsigned count_2_log = LOG_EVERY_TIMES;
-
+  const float timeDt = 3.0;   //ms
 }
 
 const double min_PID_control = -800;      // min and max PID result
 const double max_PID_control = 800;       // 1200 + 800 and 2000 - 800. 
 const float OFFSET_ANGLE = 1.0;           // смещение просто к конечному углу
-const float FILTER_COEF_ACCEL = 0.12;      // фильтрация сырых
+const float FILTER_COEF_ACCEL = 0.14;      // фильтрация сырых
 
 // !!!!!!! ====================================== Безопасность и работа ====================================== !!!!!!! //
 
