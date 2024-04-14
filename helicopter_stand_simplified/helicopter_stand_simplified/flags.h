@@ -41,9 +41,9 @@ const float COEF_ACCEL_COMP = 0.98;   // часть гиро в комплеме
 const double throttle= 1500;// 1470 1550; -long     //initial value of throttle
 const float desired_angle = 0; // target angle  better use 5-6 whant
 
-const double pid_Kp = 1.1;//3.55
-const double pid_Ki = 0.09;//0.003
-const double pid_Kd = 0.05;//2.05
+const double pid_Kp = 0.72;//3.55
+const double pid_Ki = 0.5;//0.003
+const double pid_Kd = 0.06;//2.05
 
 namespace EXPR_VARS {
   double total_integral = 0;
