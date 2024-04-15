@@ -11,51 +11,75 @@
 
 // ======================== Флаги вывода ======================== //
 
-//#define DEBUG_WORK        // лог углов, пид через Serial.print (для отладки, 2.5 мс) Сильно ухудшает
-//#define DEBUG_TIMERS      // лог шага времени затрат на вычисление угла
-#define DEBUG_WRITE_BYTE  // вывод байтами (докинуть нужное)
-//#define DEBUG_PID         // вывод ПИД инфы (перенесется в предыдущий)
+//#define DEBUG_WORK_PRINT            // лог углов, пид через Serial.print (для отладки, 2.5 мс) Сильно ухудшает
+//#define DEBUG_TIMERS                  // лог шага времени затрат на вычисление угла
+#define DEBUG_WRITE_BYTE              // вывод байтами (докинуть нужное)
+//#define DEBUG_PID                   // вывод ПИД инфы (перенесется в предыдущий)
+
+const bool IS_DEBUG_PID = 0;                        // debug pid
+const bool IS_DEBUG_RAW = 0;                        // debug raw accel gyro
+//const bool IS_DEBUG_MAIN = 1;                     // angle, filt_angle, pwm, dt, integral_sum
 
 
-// ====================== КОНСТАНТЫ И СМЕЩЕНИЯ ДЛЯ MPU6050 ====================== //
+const unsigned int BYTE_SEND_BUFFER_SIZE = 5 + IS_DEBUG_PID * 3 + IS_DEBUG_RAW * 6;
+
+const unsigned int PID_INDEX_START = 5;                                 // if use pid debug, write main [0-4], then [5-7] for pid
+const unsigned int RAW_INDEX_START = (IS_DEBUG_PID) ? (5+3) : 5;
+
+/* [0 1 2 3 4] [5 6 7] [8 9 10| 11 12 13]
+/*    main      pid     raw
+
+/* !!!!!!!!!! GYRO Z */
+
+
+
+// ======================================================= КОНСТАНТЫ И СМЕЩЕНИЯ ДЛЯ MPU6050 ======================================================== //
 //int16_t offsetMPU[6] = {-1372,	857,	887,	3,	-40,	-52};//{-3761, 1339, -3009, 45, -54, 44}; // my 2
 const int16_t offsetMPU[6] = {-600,	-4997,	1185,	127,	27,	-99}; // 3 - main
-const float AccErrorX_calc = -0.01;// * 0;
-const float AccErrorY_calc = -3.24;//  * 0;
-const float GyroErrorX_calc = -0.36;//  * 0;
-const float GyroErrorY_calc = 2.27;//  * 0;
-const float GyroErrorZ_calc = -1.64;//  * 0;
+const float AccErrorX_calc = -0.01;
+const float AccErrorY_calc = -3.24;
+const float GyroErrorX_calc = -0.36;
+const float GyroErrorY_calc = 2.27;
+const float GyroErrorZ_calc = -1.64;
 
-const float AccErrorX_calcFilt = -0.01;// * 0;
-const float AccErrorY_calcFilt = -3.24;//  * 0;
-const float GyroErrorX_calcFilt = -0.36;//  * 0;
-const float GyroErrorY_calcFilt = 2.27;//  * 0;
-const float GyroErrorZ_calcFilt = -1.64;//  * 0;
+const float AccErrorX_calcFilt = -0.01;
+const float AccErrorY_calcFilt = -3.24;
+const float GyroErrorX_calcFilt = -0.36;
+const float GyroErrorY_calcFilt = 2.27;
+const float GyroErrorZ_calcFilt = -1.64;
 
-
-const float COEF_ACCEL_COMP = 0.98;   // часть гиро в комплементарном фильтре
-
+const float COEF_GYRO_COMP = 0.98;   // часть гиро в комплементарном фильтре
 
 
-// ================== КОНСТАНТЫ ДЛЯ РАБОТЫ ПИД ================== //
-const double throttle= 1500;// 1470 1550; -long     //initial value of throttle
+
+
+
+// ================================================== КОНСТАНТЫ ДЛЯ РАБОТЫ ПИД ========================================= //
+const double throttle = 1500;// 1470 1550; -long     //initial value of throttle
 const float desired_angle = 0; // target angle  better use 5-6 whant
 
 const double pid_Kp = 0.72;//3.55
-const double pid_Ki = 0.5;//0.003
-const double pid_Kd = 0.06;//2.05
+const double pid_Ki = 0.04;//0.003
+const double pid_Kd = 0.02;//2.05
 
 namespace EXPR_VARS {
+  const double RESET_CONTROL_VAR = 1200-throttle;
   double total_integral = 0;
   double last_error = 0;
-  double control_signal = 1200;
-  void resetPid(){
-    total_integral = 0; last_error = 0; control_signal = 1200-throttle;
-  }
+  double control_signal = RESET_CONTROL_VAR;
 
   const int LOG_EVERY_TIMES = 0;
   unsigned count_2_log = LOG_EVERY_TIMES;
   const float timeDt = 3.0;   //ms
+
+  float P_last_OUT = 0.0;
+  float I_last_OUT = 0.0;
+  float D_last_OUT = 0.0;
+
+  void resetPid(){
+    total_integral = 0; last_error = 0; control_signal = RESET_CONTROL_VAR;
+    P_last_OUT = I_last_OUT = D_last_OUT = 0.0;
+  }
 }
 
 const double min_PID_control = -800;      // min and max PID result
@@ -63,12 +87,11 @@ const double max_PID_control = 800;       // 1200 + 800 and 2000 - 800.
 const float OFFSET_ANGLE = 1.0;           // смещение просто к конечному углу
 const float FILTER_COEF_ACCEL = 0.14;      // фильтрация сырых
 
+
+
+
+
 // !!!!!!! ====================================== Безопасность и работа ====================================== !!!!!!! //
-
-/*
- DELETE 0th element of anles
-*/
-
 
 const bool CURR_ANGLE_INCREASE = false; // Угол mpu увеличивается или уменьшается (+40 до 0 -> false)
 const bool USE_FILT_ANGLE = true; 
@@ -77,7 +100,7 @@ const bool USE_FILT_ANGLE = true;
 const float PWM_SEND_MIN = 1200.0;   // лимиты конечной отправки
 const float PWM_SEND_MAX = 1580.0;   // подаваемые на двигатель
 
-const float ERROR_ANGLE_LIMIT = 50.0; // лимит ошибки угла. Если превышен, то стоп
+const float ERROR_ANGLE_LIMIT = 60.0; // лимит ошибки угла. Если превышен, то стоп
                                       // может быть либо из-за некорректных показаний датчика, либо из-за 
                                       // отключения датчика и выдачи мусора
                                       // !! Пока действует и как защита при превышении угла и отключении

@@ -14,17 +14,19 @@ Servo bldcEsc;
 
 /* ============= WORKING VARIABLES =============== */
 int16_t Acc_rawX, Acc_rawY, Acc_rawZ,Gyr_rawX, Gyr_rawY, Gyr_rawZ;
+float Gyro_rawXf, Gyro_rawYf, Gyro_rawZf;
 float Acc_rawX_filt, Acc_rawY_filt, Acc_rawZ_filt, Gyr_rawX_filt, Gyr_rawY_filt, Gyr_rawZ_filt;
 
-float Acceleration_angle[2];
-float Gyro_angle[2];
-float Total_angle[2];
+float Acceleration_angle[2] = {0, 0};
+float Gyro_angle[2] = {0, 0};
+float Total_angle[2] = {0, 0};
 
 float Acceleration_angle_filt[2];
 float Gyro_angle_filt[2];
 float Total_angle_filt[2];
 
-float elapsedTime, time, timePrev;
+float elapsedTime = 0.001;
+float currTime, timePrev;
 const float rad_to_deg = 180/3.141592654;
 float timeStartRead;
 float pwmLeft, error, previous_error;
@@ -44,12 +46,15 @@ union FloatType {
   float val;
 };
 
-FloatType sendData[5];
+FloatType sendData[BYTE_SEND_BUFFER_SIZE];
 uint8_t sendBuffer[sizeof(sendData)];
 
 
+
+
+
 /*
-    ======================================== SETUP FUNCTION ========================================
+    ============================================================= SETUP FUNCTION =============================================================
 */
 void setup() {
 
@@ -62,64 +67,49 @@ void setup() {
   Wire.endTransmission(true);
   Serial.begin(serialFreq);
 
-  // set bldc
-  bldcEsc.attach(ESC_PIN);
+  bldcEsc.attach(ESC_PIN);                // set bldc
   bldcEsc.writeMicroseconds(PWM_MIN);
 
-  // ******** get angle in loop ********//
-  // ****** to prepare mpu6050 *****//
-  // ****** check is ok ****** //
+  // ******** get angle in loop  to prepare mpu6050 *****//
+  elapsedTime = 0.0001;
   Total_angle[0] = Total_angle_filt[0] = 0.0;
   for (int i = 0; i < 3000; i++) {
     getAngle();
     getAngleFilt();
-    if (i % 50 == 0){
-      Serial.print("angle:"); Serial.print(Total_angle[1]); Serial.print(", "); 
-      Serial.print("angle_filt:"); Serial.println(Total_angle_filt[1]); 
-    }
+    if (i % 50 == 0) Serial.print("angle:"); Serial.print(Total_angle[1]); Serial.print(", "); Serial.print("angle_filt:"); Serial.println(Total_angle_filt[1]); 
   }
 
   delay(1000);
-  time = millis();
-  // add checking if angle < 0 and add checking if WIRE mpu working or ignore
-  // in infinity loop
-  // for(;;)
-
+  currTime = millis();
   FLAGS_WORK::startWorking = false;
 }
 
 
 
 
+
+
 /*
-    ======================================== MAIN LOOP ========================================
+    ============================================================ MAIN LOOP ==================================================================
 */
 void loop() {
-  timePrev = time;  
-  time = millis();  
-  elapsedTime = (time - timePrev) / 1000.0; 
+  timePrev = currTime;  
+  currTime = millis();  
+  elapsedTime = (currTime - timePrev) / 1000.0; 
 
-  // read command to stop/start
-  if (Serial.available() > 0){ switchWorking(Serial.read()); } 
 
-  // was set flag to do nothing STOP
-  if (!FLAGS_WORK::startWorking) return;
+  if (Serial.available() > 0){ switchWorking(Serial.read()); }    /* read command to stop/start  */
 
+  if (!FLAGS_WORK::startWorking) return;                          /* set flag to do nothing */
 
 
   /* ============ READ ANGLE FROM MPU ============= */
 #ifdef DEBUG_TIMERS
-  Serial.print(F("elapsed: ")); Serial.println(time - timePrev);
-  timeStartRead = millis();
+  Serial.print(F("elapsed: ")); Serial.println(time - timePrev); timeStartRead = millis();
 #endif
   
   getAngle();
-  getAngleFilt();
-
-#ifdef DEBUG_TIMERS
-  Serial.print(F("elapsedGetAngle: ")); Serial.println(millis() - timeStartRead);
-#endif
-
+  getAngleFilt();  
 
 
   // ======= Если угол начинается с +40 и идет в 0, то false
@@ -127,10 +117,8 @@ void loop() {
     error = (CURR_ANGLE_INCREASE) ? (desired_angle - Total_angle_filt[1]) : (Total_angle_filt[1] - desired_angle);
   } else {
     error = (CURR_ANGLE_INCREASE) ? (desired_angle - Total_angle[1]) : (Total_angle[1] - desired_angle);
-  } // error = Total_angle[1] - desired_angle;
+  } 
   
-  //error += OFFSET_ANGLE;
-
 
   /* =========================== SAFETY SAFETY =========================== */
    //************** if (Total_angle[1] > 40) { stop(); return; } **********/
@@ -140,7 +128,7 @@ void loop() {
   }
 
 
-  /* === calc signal === */
+  /* ============== calc signal ============== */
   PID_Step(error, elapsedTime);
   pwmLeft = throttle + EXPR_VARS::control_signal;
 
@@ -153,46 +141,52 @@ void loop() {
 
   /* ==== send PWM ==== */
   bldcEsc.writeMicroseconds(pwmLeft);
-  /* ==== send PWM ==== */
 
 
 
   /* ========== ЛОГГИРОВАНИЕ ДАННЫХ ========== */
 
-  #ifdef DEBUG_WORK
-  Serial.print("angle:"); Serial.print(Total_angle[1]); Serial.print(", "); 
-  Serial.print("angle_filt:"); Serial.print(Total_angle_filt[1]); Serial.print(", "); 
-  Serial.print("pid:"); Serial.print(EXPR_VARS::control_signal); Serial.print(", ");
-  Serial.print("pwmLeft:"); Serial.println(pwmLeft);
+  #ifdef DEBUG_WORK_PRINT
+  debugWorkPrint();
   #endif
 
   #ifdef DEBUG_WRITE_BYTE
-  /*
-  Serial.write((char*)&Total_angle[1], sizeof(Total_angle[1])); Serial.write(',');
-  Serial.write((char*)&Total_angle_filt[1], sizeof(Total_angle_filt[1])); Serial.write(',');
-  Serial.write((char*)&EXPR_VARS::control_signal, sizeof(EXPR_VARS::control_signal)); Serial.write(',');
-  Serial.write((char*)&pwmLeft, sizeof(pwmLeft)); Serial.write('\n');
-  */
-  // maybe 1 in 5 times, not every itteration
-  if (EXPR_VARS::count_2_log != 0) EXPR_VARS::count_2_log--;
-  else
-  {
-    sendData[0].val = Total_angle[1]; sendData[1].val = Total_angle_filt[1]; sendData[2].val = EXPR_VARS::control_signal; 
-    sendData[3].val = EXPR_VARS::total_integral; sendData[4].val = elapsedTime*1000;
-    memcpy(sendBuffer, (void*)sendData, sizeof(sendBuffer));
-    Serial.write('#'); Serial.write('#');
-    Serial.write(sendBuffer, sizeof(sendBuffer));
-    EXPR_VARS::count_2_log = EXPR_VARS::LOG_EVERY_TIMES;
-  }
+  debugByte();
   #endif
 
 }
 /* ======================================== MAIN LOOP ======================================== */
 
 
+void debugByte()
+{
+  if (EXPR_VARS::count_2_log != 0) EXPR_VARS::count_2_log--;
+  else
+  {
+    sendData[0].val = Total_angle[1]; 
+    sendData[1].val = Total_angle_filt[1]; 
+    sendData[2].val = EXPR_VARS::control_signal; 
+    sendData[3].val = EXPR_VARS::total_integral; 
+    sendData[4].val = elapsedTime*1000;
+    if (IS_DEBUG_PID) {
+      sendData[PID_INDEX_START].val = EXPR_VARS::P_last_OUT; 
+      sendData[PID_INDEX_START+1].val = EXPR_VARS::I_last_OUT; 
+      sendData[PID_INDEX_START+2].val = EXPR_VARS::P_last_OUT; 
+    }
+    if (IS_DEBUG_RAW) {
+      sendData[RAW_INDEX_START].val = Acc_rawX; sendData[RAW_INDEX_START+1].val = Acc_rawY; sendData[RAW_INDEX_START+2].val = Acc_rawZ;
+      sendData[RAW_INDEX_START+3].val = Gyr_rawX; sendData[RAW_INDEX_START+4].val = Gyr_rawY; sendData[RAW_INDEX_START+5].val = Gyr_rawX;
+    }
+
+    memcpy(sendBuffer, (void*)sendData, sizeof(sendBuffer));
+    Serial.write('#'); Serial.write('#');
+    Serial.write(sendBuffer, sizeof(sendBuffer));
+    EXPR_VARS::count_2_log = EXPR_VARS::LOG_EVERY_TIMES;
+  }
+}
+
 
 void switchWorking(int ch) {
-    //Serial.read(); Serial.read();
     switch(ch)
     {
       case START_BUTTON:
@@ -219,7 +213,6 @@ void switchWorking(int ch) {
 
 
 void stopPANIC() {
-  //bldcEsc.stop();
   bldcEsc.writeMicroseconds(PWM_MIN);
   FLAGS_WORK::startWorking = false;
   reset();
@@ -228,7 +221,7 @@ void stopPANIC() {
 
 
 
-void smoothStop() {     // "мягкий стоп"
+void smoothStop() {     
   static long last_time_decrease;
 
   FLAGS_WORK::startWorking = false;
@@ -258,45 +251,40 @@ void smoothStop() {     // "мягкий стоп"
   bldcEsc.writeMicroseconds(PWM_MIN);
   FLAGS_WORK::startWorking = false;
   reset();
-
-
   SMOOTH_SET = false;
 }
 
 
 void start() {
-  //saf_reset(); //timersStart();
   /* ======================= CHECK MPU ADD ==================== */
-  // else DEBUG PRINT 
   reset();
   FLAGS_WORK::startWorking = true;
-  //bldcEsc.speed(PWM_MIN);
- // FLAGS_WORK::startWorking = true;
 }
 
 
 void reset() {
   EXPR_VARS::resetPid();
   SMOOTH_SET = false;
-  //saf_reset();
-  //mpuObject.resetFIFO();
+  currTime = millis();
 }
 
 
 
 
 // =======================================================  MATHEMATICS ======================================================= //
-// =======================================================  MATHEMATICS ======================================================= //
-// dt - ms or sec
-void PID_Step(double error_, double dt)
+void PID_Step(double error_, double dt) // dt - ms or sec
 {
   if (dt < 0.0001) return;
 
   EXPR_VARS::total_integral += error_ * dt;   
 
-  EXPR_VARS::control_signal = pid_Kp * error_ + 
-        pid_Ki * EXPR_VARS::total_integral +
-        pid_Kd * (error_ - EXPR_VARS::last_error)/dt;
+  EXPR_VARS::P_last_OUT = pid_Kp * error_;
+  EXPR_VARS::I_last_OUT = pid_Ki * EXPR_VARS::total_integral;
+  EXPR_VARS::D_last_OUT = pid_Kd * (error_ - EXPR_VARS::last_error)/dt;
+
+  /* limit every part of PID? */
+
+  EXPR_VARS::control_signal = EXPR_VARS::P_last_OUT + EXPR_VARS::I_last_OUT + EXPR_VARS::D_last_OUT;
 
   EXPR_VARS::last_error = error_;
 
@@ -307,19 +295,13 @@ void PID_Step(double error_, double dt)
   if (EXPR_VARS::control_signal < min_PID_control) {
     EXPR_VARS::control_signal = min_PID_control;
   }
-
-  #ifdef DEBUG_PID
-    Serial.print(F("pid\t"));
-    Serial.print(EXPR_VARS::control_signal); Serial.print("\t");
-    Serial.print(error); Serial.print("\t");
-    Serial.print(dt); Serial.print("\t");
-    Serial.println(EXPR_VARS::total_integral);
-  #endif
   
 }
 
 
 
+// https://github.com/rfetick/MPU6050_light/blob/master/src/MPU6050_light.cpp
+// про минусы и прочее, если понадобится 
 
 inline void getAngle()
 {
@@ -332,41 +314,32 @@ inline void getAngle()
   Acc_rawY=Wire.read()<<8|Wire.read();
   Acc_rawZ=Wire.read()<<8|Wire.read();
 
-  // offset
-//  Acc_rawX -= offsetMPU[0];
-//  Acc_rawY -= offsetMPU[1];
-//  Acc_rawZ -= offsetMPU[2];
  // Acceleration_angle[0] = atan((Acc_rawY/16384.0)/sqrt(pow((Acc_rawX/16384.0),2) + pow((Acc_rawZ/16384.0),2)))*rad_to_deg;    /*---X---*/
  // Acceleration_angle[1] = atan(-1*(Acc_rawX/16384.0)/sqrt(pow((Acc_rawY/16384.0),2) + pow((Acc_rawZ/16384.0),2)))*rad_to_deg; /*---Y---*/
-
   Acceleration_angle[0] = atan((Acc_rawY/16384.0)/sqrt((Acc_rawX/16384.0)*(Acc_rawX/16384.0) + (Acc_rawZ/16384.0)*(Acc_rawZ/16384.0)))*rad_to_deg;  /*---X---*/
   Acceleration_angle[1] = atan(-1*(Acc_rawX/16384.0)/sqrt((Acc_rawY/16384.0)*(Acc_rawY/16384.0) + (Acc_rawZ/16384.0)*(Acc_rawZ/16384.0)))*rad_to_deg; /*---Y---*/
-
-
   Acceleration_angle[0] -= AccErrorX_calc;
   Acceleration_angle[1] -= AccErrorY_calc;
 
   Wire.beginTransmission(0x68);
   Wire.write(0x43); //Gyro data first adress
   Wire.endTransmission(false);
-  Wire.requestFrom(0x68,4,true); //Just 4 registers  
+  Wire.requestFrom(0x68,6,true); //Just 6 registers  
 
-  Gyr_rawX=Wire.read()<<8|Wire.read(); //Once again we shif and sum
-  Gyr_rawY=Wire.read()<<8|Wire.read();
+  Gyr_rawX = Wire.read()<<8|Wire.read(); //Once again we shif and sum
+  Gyr_rawY = Wire.read()<<8|Wire.read();
+  Gyr_rawZ = Wire.read()<<8|Wire.read();
+  Gyro_rawXf = (Gyr_rawX/131.0) - GyroErrorX_calc;   /*---X---*/
+  Gyro_rawYf = (Gyr_rawY/131.0) - GyroErrorY_calc;    /*---Y---*/
 
-  // offset
- // Gyr_rawX -= offsetMPU[3];
- // Gyr_rawY -= offsetMPU[4];
+  //Gyro_angle[0] = Gyro_angle[0] + Gyro_rawXf * elapsedTime;   /*---X---*/
+  Gyro_angle[1] = Gyro_angle[1] + Gyro_rawYf * elapsedTime;    /*---Y---*/
 
-  Gyro_angle[0] = Gyr_rawX/131.0;   /*---X---*/
-  Gyro_angle[1] = Gyr_rawY/131.0;    /*---Y---*/
-
-  Gyro_angle[0] -= GyroErrorX_calc;
-  Gyro_angle[1] -= GyroErrorY_calc;
-
-  //Total_angle[0] = COEF_ACCEL_COMP *(Total_angle[0] + Gyro_angle[0]*elapsedTime) + (1-COEF_ACCEL_COMP) * Acceleration_angle[0];  /*---X axis angle---*/
-  Total_angle[1] = COEF_ACCEL_COMP *(Total_angle[1] + Gyro_angle[1]*elapsedTime) + (1-COEF_ACCEL_COMP) * Acceleration_angle[1];  /*---Y axis angle---*/
+  Gyro_angle[1] = COEF_GYRO_COMP * Gyro_angle[1] + (1-COEF_GYRO_COMP) * Acceleration_angle[1];
+  Total_angle[1] = Gyro_angle[1];
 }
+
+
 
 
 
@@ -394,9 +367,35 @@ void getAngleFilt()
   //Total_angle_filt[0] = filter1.filter(Total_angle[0]);
 
   /**** !!!!! НЕ ДОБАВЛЯТЬ OFFSET В ИТОГОВЫЙ ФИЛЬТР ИНАЧЕ УГОЛ СОВСЕМ ДРУГОЙ 90 вместо +40 ***/
- Total_angle_filt[1] = COEF_ACCEL_COMP*(Total_angle_filt[1] + Gyro_angle[1]*elapsedTime) + (1-COEF_ACCEL_COMP)*Acceleration_angle_filt[1];
+ //Total_angle_filt[1] = COEF_ACCEL_COMP*(Total_angle_filt[1] + Gyro_angle[1]*elapsedTime) + (1-COEF_ACCEL_COMP)*Acceleration_angle_filt[1];
+ //Total_angle_filt[1] = COEF_ACCEL_COMP*(Total_angle_filt[1] + Gyro_angle[1]*elapsedTime) + (1-COEF_ACCEL_COMP)*Acceleration_angle_filt[1];
+  Total_angle_filt[1] = 0.96 * Gyro_angle[1] + 0.04* Acceleration_angle_filt[1];
 }
 
+
+
+void debugWorkPrint()  /* Serial.print angles and pid */
+{
+
+  Serial.print("angle:"); Serial.print(Total_angle[1]);           Serial.print(", "); 
+  Serial.print("angle_filt:"); Serial.print(Total_angle_filt[1]); Serial.print(", "); 
+  Serial.print("pid:"); Serial.print(EXPR_VARS::control_signal);  Serial.print(", ");
+  Serial.print("dt:"); Serial.print(elapsedTime*1000);            Serial.print(", ");
+  Serial.print("interSum:"); Serial.print(EXPR_VARS::total_integral);                Serial.print(", ");
+  if (IS_DEBUG_PID){
+    Serial.print("P:"); Serial.print(EXPR_VARS::P_last_OUT);      Serial.print(", ");
+    Serial.print("D:"); Serial.print(EXPR_VARS::D_last_OUT);      Serial.print(", ");
+    Serial.print("I:"); Serial.print(EXPR_VARS::I_last_OUT);      Serial.print(", ");
+  }
+  if (IS_DEBUG_RAW) {
+    Serial.print("accX:"); Serial.print(Acc_rawX);                Serial.print(", ");
+    Serial.print("accY:"); Serial.print(Acc_rawY);                Serial.print(", ");
+    Serial.print("accZ:"); Serial.print(Acc_rawZ);                Serial.print(", ");
+    Serial.print("gyrX:"); Serial.print(Gyr_rawX);                Serial.print(", ");
+    Serial.print("gyrY:"); Serial.print(Gyr_rawY);                Serial.print(", ");
+  }
+  Serial.println();
+}
 
 
 
@@ -408,3 +407,44 @@ float filt(float pot){
 }
 
 
+
+/*
+// ДРЕЙФ ЕСТЬ /
+inline void getAngleAlter()
+{
+  Wire.beginTransmission(0x68);
+  Wire.write(0x3B);                     //Ask for the 0x3B register- correspond to AcX
+  Wire.endTransmission(false);
+  Wire.requestFrom(0x68,6,true); 
+
+  Acc_rawX=Wire.read()<<8|Wire.read(); //  needs two registres
+  Acc_rawY=Wire.read()<<8|Wire.read();
+  Acc_rawZ=Wire.read()<<8|Wire.read();
+
+ // Acceleration_angle[0] = atan((Acc_rawY/16384.0)/sqrt(pow((Acc_rawX/16384.0),2) + pow((Acc_rawZ/16384.0),2)))*rad_to_deg;    //---X---//
+ // Acceleration_angle[1] = atan(-1*(Acc_rawX/16384.0)/sqrt(pow((Acc_rawY/16384.0),2) + pow((Acc_rawZ/16384.0),2)))*rad_to_deg; //---Y---//
+
+  Acceleration_angle[0] = atan((Acc_rawY/16384.0)/sqrt((Acc_rawX/16384.0)*(Acc_rawX/16384.0) + (Acc_rawZ/16384.0)*(Acc_rawZ/16384.0)))*rad_to_deg;  //---X---//
+  Acceleration_angle[1] = atan(-1*(Acc_rawX/16384.0)/sqrt((Acc_rawY/16384.0)*(Acc_rawY/16384.0) + (Acc_rawZ/16384.0)*(Acc_rawZ/16384.0)))*rad_to_deg; //---Y---//
+
+
+  Acceleration_angle[0] -= AccErrorX_calc;
+  Acceleration_angle[1] -= AccErrorY_calc;
+
+  Wire.beginTransmission(0x68);
+  Wire.write(0x43); //Gyro data first adress
+  Wire.endTransmission(false);
+  Wire.requestFrom(0x68,6,true); //Just 4 registers  
+
+  Gyr_rawX = Wire.read()<<8|Wire.read(); //Once again we shif and sum
+  Gyr_rawY = Wire.read()<<8|Wire.read();
+  Gyr_rawZ = Wire.read()<<8|Wire.read();
+
+  Gyro_rawXf = (Gyr_rawX/131.0) - GyroErrorX_calc;   //---X---//
+  Gyro_rawYf = (Gyr_rawY/131.0) - GyroErrorY_calc;   //---Y---//
+  Gyro_angle[1] = Gyro_angle[1] + Gyro_rawYf * elapsedTime;   //---Y---//
+  Total_angle[1] = 0.98 * (Total_angle[1] + Gyro_rawYf * elapsedTime) + 0.02 * (Acceleration_angle[1]);
+ // Total_angle[1] = COEF_ACCEL_COMP * (Total_angle[1] + Gyro_angle[1]*elapsedTime) + (1-COEF_ACCEL_COMP) * Acceleration_angle[1];  //---Y axis angle---//
+  //Total_angle[1] = COEF_ACCEL_COMP * (Gyro_angle[1]) + (1-COEF_ACCEL_COMP) * Acceleration_angle[1];
+}
+*/
