@@ -71,7 +71,7 @@ void setup() {
   bldcEsc.writeMicroseconds(PWM_MIN);
 
   // ******** get angle in loop  to prepare mpu6050 *****//
-  elapsedTime = 0.0001;
+  elapsedTime = 0.001;
   Total_angle[0] = Total_angle_filt[0] = 0.0;
   for (int i = 0; i < 3000; i++) {
     getAngle();
@@ -343,13 +343,14 @@ inline void getAngle()
 
 
 
-
+/* см. ФИЛЬТРАЦИЯ obsidian */
 
 void getAngleFilt()
 {
   static SimpleLowPass filter1(FILTER_COEF_ACCEL);
   static SimpleLowPass filter2(FILTER_COEF_ACCEL);
   static SimpleLowPass filter3(FILTER_COEF_ACCEL);
+  static SimpleLowPass filterAngle(FILTER_ANGLE);
 
   Acc_rawX_filt = filter1.filter(Acc_rawX);
   Acc_rawY_filt = filter2.filter(Acc_rawY);
@@ -360,16 +361,14 @@ void getAngleFilt()
 
   Acceleration_angle_filt[0] -= AccErrorX_calcFilt;
   Acceleration_angle_filt[1] -= AccErrorY_calcFilt;
- // Acceleration_angle_filt[0] = filter1.filter(Acceleration_angle[0]);
- // Acceleration_angle_filt[1] = filter2.filter(Acceleration_angle[1]);
-  //   Total_angle_filt[0] = 0.98 *(Total_angle_filt[0] + Gyro_angle[0]*elapsedTime) + 0.02*Acceleration_angle_filt[0]; /*---X axis angle---*/
- //  Total_angle_filt[1] = 0.98 *(Total_angle_filt[1] + Gyro_angle[1]*elapsedTime) + 0.02*Acceleration_angle_filt[1]; /*---Y axis angle---*/
-  //Total_angle_filt[0] = filter1.filter(Total_angle[0]);
 
-  /**** !!!!! НЕ ДОБАВЛЯТЬ OFFSET В ИТОГОВЫЙ ФИЛЬТР ИНАЧЕ УГОЛ СОВСЕМ ДРУГОЙ 90 вместо +40 ***/
- //Total_angle_filt[1] = COEF_ACCEL_COMP*(Total_angle_filt[1] + Gyro_angle[1]*elapsedTime) + (1-COEF_ACCEL_COMP)*Acceleration_angle_filt[1];
- //Total_angle_filt[1] = COEF_ACCEL_COMP*(Total_angle_filt[1] + Gyro_angle[1]*elapsedTime) + (1-COEF_ACCEL_COMP)*Acceleration_angle_filt[1];
-  Total_angle_filt[1] = 0.96 * Gyro_angle[1] + 0.04* Acceleration_angle_filt[1];
+  Gyro_angle_filt[1] = Gyro_angle_filt[1] + Gyro_rawYf * elapsedTime;
+  Gyro_angle_filt[1] = COEF_GYRO_COMP * Gyro_angle_filt[1] + (1-COEF_GYRO_COMP) * Acceleration_angle_filt[1];
+
+  Gyro_angle_filt[1] = filterAngle.filter(Gyro_angle_filt[1]);
+  Total_angle_filt[1] = Gyro_angle_filt[1];
+  
+  //Total_angle_filt[1] = filterAngle.filter(Total_angle_filt[1]);
 }
 
 

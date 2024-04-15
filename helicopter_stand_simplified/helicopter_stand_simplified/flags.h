@@ -48,7 +48,7 @@ const float GyroErrorX_calcFilt = -0.36;
 const float GyroErrorY_calcFilt = 2.27;
 const float GyroErrorZ_calcFilt = -1.64;
 
-const float COEF_GYRO_COMP = 0.98;   // часть гиро в комплементарном фильтре
+const float COEF_GYRO_COMP = 0.985;   // часть гиро в комплементарном фильтре
 
 
 
@@ -85,7 +85,10 @@ namespace EXPR_VARS {
 const double min_PID_control = -800;      // min and max PID result
 const double max_PID_control = 800;       // 1200 + 800 and 2000 - 800. 
 const float OFFSET_ANGLE = 1.0;           // смещение просто к конечному углу
-const float FILTER_COEF_ACCEL = 0.14;      // фильтрация сырых
+
+
+const float FILTER_COEF_ACCEL = 0.25;      // фильтрация сырых акселерометра
+const float FILTER_ANGLE = 0.745;           // фильтрация угла (меньше - сильнее отставание)
 
 
 
@@ -100,7 +103,7 @@ const bool USE_FILT_ANGLE = true;
 const float PWM_SEND_MIN = 1200.0;   // лимиты конечной отправки
 const float PWM_SEND_MAX = 1580.0;   // подаваемые на двигатель
 
-const float ERROR_ANGLE_LIMIT = 60.0; // лимит ошибки угла. Если превышен, то стоп
+const float ERROR_ANGLE_LIMIT = 64.0; // лимит ошибки угла. Если превышен, то стоп
                                       // может быть либо из-за некорректных показаний датчика, либо из-за 
                                       // отключения датчика и выдачи мусора
                                       // !! Пока действует и как защита при превышении угла и отключении
