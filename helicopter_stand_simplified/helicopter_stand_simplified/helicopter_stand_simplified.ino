@@ -76,7 +76,9 @@ void setup() {
   for (int i = 0; i < 3000; i++) {
     getAngle();
     getAngleFilt();
-    if (i % 50 == 0) Serial.print("angle:"); Serial.print(Total_angle[1]); Serial.print(", "); Serial.print("angle_filt:"); Serial.println(Total_angle_filt[1]); 
+    if (i % 100 == 0) { 
+      Serial.print("angle:"); Serial.print(Total_angle[1]); Serial.print(", "); Serial.print("angle_filt:"); Serial.println(Total_angle_filt[1]); 
+    }
   }
 
   delay(1000);
