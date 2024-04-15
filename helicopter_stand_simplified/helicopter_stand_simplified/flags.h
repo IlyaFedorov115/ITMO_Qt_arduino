@@ -62,8 +62,10 @@ const double pid_Kp = 0.72;//3.55
 const double pid_Ki = 0.04;//0.003
 const double pid_Kd = 0.02;//2.05
 
+/* Maybe need to add P I D max out */
 namespace EXPR_VARS {
   const double RESET_CONTROL_VAR = 1200-throttle;
+  //const double RESET_LAST_ERROR_DIF = 47.0;       // to prevent much out of diff
   double total_integral = 0;
   double last_error = 0;
   double control_signal = RESET_CONTROL_VAR;
@@ -76,9 +78,12 @@ namespace EXPR_VARS {
   float I_last_OUT = 0.0;
   float D_last_OUT = 0.0;
 
+  bool setLastError = false;        // prevent D component start
+
   void resetPid(){
-    total_integral = 0; last_error = 0; control_signal = RESET_CONTROL_VAR;
+    total_integral = 0; last_error = 0.0; control_signal = RESET_CONTROL_VAR;
     P_last_OUT = I_last_OUT = D_last_OUT = 0.0;
+    setLastError = false;
   }
 }
 

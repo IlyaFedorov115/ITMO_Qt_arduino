@@ -278,12 +278,16 @@ void PID_Step(double error_, double dt) // dt - ms or sec
 
   EXPR_VARS::total_integral += error_ * dt;   
 
-  EXPR_VARS::P_last_OUT = pid_Kp * error_;
+  EXPR_VARS::P_last_OUT = pid_Kp * error_;                                /* limit every part of PID? */
   EXPR_VARS::I_last_OUT = pid_Ki * EXPR_VARS::total_integral;
   EXPR_VARS::D_last_OUT = pid_Kd * (error_ - EXPR_VARS::last_error)/dt;
 
-  /* limit every part of PID? */
-
+  // init diff last error (prevent last = 0 and curr 40 -> too much)
+  if (!EXPR_VARS::setLastError){
+    EXPR_VARS::D_last_OUT = 0.0;
+    EXPR_VARS::setLastError = true;
+  }
+  
   EXPR_VARS::control_signal = EXPR_VARS::P_last_OUT + EXPR_VARS::I_last_OUT + EXPR_VARS::D_last_OUT;
 
   EXPR_VARS::last_error = error_;
@@ -295,7 +299,6 @@ void PID_Step(double error_, double dt) // dt - ms or sec
   if (EXPR_VARS::control_signal < min_PID_control) {
     EXPR_VARS::control_signal = min_PID_control;
   }
-  
 }
 
 
@@ -380,6 +383,7 @@ void debugWorkPrint()  /* Serial.print angles and pid */
   Serial.print("angle_filt:"); Serial.print(Total_angle_filt[1]); Serial.print(", "); 
   Serial.print("pid:"); Serial.print(EXPR_VARS::control_signal);  Serial.print(", ");
   Serial.print("dt:"); Serial.print(elapsedTime*1000);            Serial.print(", ");
+  Serial.print("err:"); Serial.print(error);            Serial.print(", ");
   Serial.print("interSum:"); Serial.print(EXPR_VARS::total_integral);                Serial.print(", ");
   if (IS_DEBUG_PID){
     Serial.print("P:"); Serial.print(EXPR_VARS::P_last_OUT);      Serial.print(", ");
