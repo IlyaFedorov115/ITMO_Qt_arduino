@@ -16,7 +16,7 @@
 #define DEBUG_WRITE_BYTE              // вывод байтами (докинуть нужное)
 //#define DEBUG_PID                   // вывод ПИД инфы (перенесется в предыдущий)
 
-const bool IS_DEBUG_PID = 0;                        // debug pid
+const bool IS_DEBUG_PID = 1;                        // debug pid
 const bool IS_DEBUG_RAW = 0;                        // debug raw accel gyro
 //const bool IS_DEBUG_MAIN = 1;                     // angle, filt_angle, pwm, dt, integral_sum
 
@@ -48,19 +48,19 @@ const float GyroErrorX_calcFilt = -0.36;
 const float GyroErrorY_calcFilt = 2.27;
 const float GyroErrorZ_calcFilt = -1.64;
 
-const float COEF_GYRO_COMP = 0.985;   // часть гиро в комплементарном фильтре
+const float COEF_GYRO_COMP = 0.99;   // часть гиро в комплементарном фильтре
 
 
 
 
 
 // ================================================== КОНСТАНТЫ ДЛЯ РАБОТЫ ПИД ========================================= //
-const double throttle = 1500;// 1470 1550; -long     //initial value of throttle
+const double throttle = 1520;// 1470 1550; -long     //initial value of throttle
 const float desired_angle = 0; // target angle  better use 5-6 whant
 
-const double pid_Kp = 0.72;//3.55
-const double pid_Ki = 0.04;//0.003
-const double pid_Kd = 0.02;//2.05
+const double pid_Kp = 0.32;//0.72;//3.55
+const double pid_Ki = 0.03;//0.04;//0.003
+const double pid_Kd = 0.015;//0.02;//2.05
 
 /* Maybe need to add P I D max out */
 namespace EXPR_VARS {
@@ -92,8 +92,8 @@ const double max_PID_control = 800;       // 1200 + 800 and 2000 - 800.
 const float OFFSET_ANGLE = 1.0;           // смещение просто к конечному углу
 
 
-const float FILTER_COEF_ACCEL = 0.25;      // фильтрация сырых акселерометра
-const float FILTER_ANGLE = 0.745;           // фильтрация угла (меньше - сильнее отставание)
+const float FILTER_COEF_ACCEL = 0.1;      // фильтрация сырых акселерометра
+const float FILTER_ANGLE = 0.18;           // фильтрация угла (меньше - сильнее отставание)
 
 
 

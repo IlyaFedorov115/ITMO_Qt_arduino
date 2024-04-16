@@ -134,6 +134,7 @@ void loop() {
   PID_Step(error, elapsedTime);
   pwmLeft = throttle + EXPR_VARS::control_signal;
 
+
   if (pwmLeft < PWM_SEND_MIN) {
     pwmLeft = PWM_SEND_MIN;
   } else if (pwmLeft > PWM_SEND_MAX) {
@@ -173,7 +174,7 @@ void debugByte()
     if (IS_DEBUG_PID) {
       sendData[PID_INDEX_START].val = EXPR_VARS::P_last_OUT; 
       sendData[PID_INDEX_START+1].val = EXPR_VARS::I_last_OUT; 
-      sendData[PID_INDEX_START+2].val = EXPR_VARS::P_last_OUT; 
+      sendData[PID_INDEX_START+2].val = EXPR_VARS::D_last_OUT; 
     }
     if (IS_DEBUG_RAW) {
       sendData[RAW_INDEX_START].val = Acc_rawX; sendData[RAW_INDEX_START+1].val = Acc_rawY; sendData[RAW_INDEX_START+2].val = Acc_rawZ;
@@ -310,6 +311,7 @@ void PID_Step(double error_, double dt) // dt - ms or sec
 
 inline void getAngle()
 {
+
   Wire.beginTransmission(0x68);
   Wire.write(0x3B);                     //Ask for the 0x3B register- correspond to AcX
   Wire.endTransmission(false);
@@ -368,9 +370,11 @@ void getAngleFilt()
   Acceleration_angle_filt[1] -= AccErrorY_calcFilt;
 
   Gyro_angle_filt[1] = Gyro_angle_filt[1] + Gyro_rawYf * elapsedTime;
-  Gyro_angle_filt[1] = COEF_GYRO_COMP * Gyro_angle_filt[1] + (1-COEF_GYRO_COMP) * Acceleration_angle_filt[1];
+  ////Gyro_angle_filt[1] = COEF_GYRO_COMP * Gyro_angle_filt[1] + (1-COEF_GYRO_COMP) * Acceleration_angle_filt[1];
 
-  Gyro_angle_filt[1] = filterAngle.filter(Gyro_angle_filt[1]);
+  //Gyro_angle_filt[1] = COEF_GYRO_COMP * Gyro_angle_filt[1] + (1-COEF_GYRO_COMP) * Acceleration_angle[1];
+  ///Gyro_angle_filt[1] = filterAngle.filter(Gyro_angle_filt[1]);
+  Gyro_angle_filt[1] = filterAngle.filter(Gyro_angle[1]);
   Total_angle_filt[1] = Gyro_angle_filt[1];
   
   //Total_angle_filt[1] = filterAngle.filter(Total_angle_filt[1]);
