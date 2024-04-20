@@ -1,0 +1,18 @@
+Статья Томашевичка связано тесно с https://sal.aalto.fi/publications/pdf-files/eluu11_public.pdf, поэтому отдельно на нее ссылаться.
+
+
+https://sal.aalto.fi/publications/pdf-files/eluu11_public.pdf  - ЭТО БАЗА на уровне статьи томашевича, тут и симуляция и параметры такие же. Тут ПД моделирование как раз.
+
+Вот эта статья для формулы (9) пригодится тоже https://sci-hub.ru/10.1109/RAST.2009.5158286
+
+
+https://www.flyingmachinearena.ethz.ch/wp-content/publications/2014/lupashin2014platform.pdf - Тут в конце про w, похоже на то что у них, но опять же по другому.
+
+Еще статья про матан. Опять же, угловые скорости у них какие то странные. https://lup.lub.lu.se/luur/download?func=downloadFile&recordOId=8847641&fileOId=8859343
+
+
+
+ПРО МОДЕЛИРОВАНИЕ:
+Томашевича статья
+https://lup.lub.lu.se/luur/download?func=downloadFile&recordOId=8847641&fileOId=8859343		--- ПРО ПИД И САТУРАЦИЮ И НАСЫЩЕНИЕ!!!! И ПРО ПИД УГЛАМИ
+https://sci-hub.ru/10.1109/RAST.2009.5158286
