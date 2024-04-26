@@ -9,7 +9,7 @@ close all
 
 % входы
 y_d = 0.2; % высота (задающее воздействие по оси 'OY')
-gamma_d = 0.2;
+gamma_d = 0.1;
 theta_d = -0.1;
 psi_d = 0.1;
 
@@ -83,9 +83,42 @@ K_psi_P = 0.58;  %  'OY' 95
 %K_psi_D = 10;   %  'OY' 25
 %K_psi_P = 40;  %  'OY' 95
 
+K_gamma_P1 = 1.79;
+K_gamma_D1 = 0.28539;
+K_gamma_I1 = 3.7751;
+
+
 K_gamma_P1 = 1.85548;
 K_gamma_D1 = 0.28992;
 K_gamma_I1 = 3.9584;
+
+
+p0 = 0.0095;
+PO = 0.005;
+Time = 0.35;
+epsil = -log(PO) / sqrt(pi*pi + (log(PO))^2); %0.69
+wn = 4 / (epsil*Time);
+
+%K_gamma_D1 = (2*epsil * wn + p0) * I_x;
+%K_gamma_P1 = (wn*wn + 2*epsil*wn*p0) * I_x;
+%K_gamma_I1 = wn*wn*p0 * I_x;
+
+K_gamma_D1 = 0.1963;
+  K_gamma_P1 = 0.8343;
+  K_gamma_I1 = 1.1438;
+
+%K_gamma_D1 =0.4983
+%    K_gamma_P1 = 4.7905
+%   K_gamma_I1 = 10.2944
+
+%K_gamma_D1 =1.5553
+% K_gamma_P1 =  42.3140
+% K_gamma_I1 = 113.3519
+
+
+  K_gamma_D1 =  1.5251
+   K_gamma_P1 = 39.2638
+   K_gamma_I1 =  37.7538
 
 K_theta_P1 = 1.85548;
 K_theta_D1 = 0.28992;
