@@ -69,3 +69,75 @@ W_theta_PD = PD_tf*symb_W_theta_tf / (1 + PD_tf*symb_W_theta_tf)
 W_psi_PD = PD_tf*symb_W_psi_tf / (1 + PD_tf*symb_W_psi_tf)
 
 
+
+%% Пид по статье https://elib.sfu-kras.ru/bitstream/handle/2311/20139/06_Prokopiev.pdf?sequence=1&ysclid=lvfbxtgg5t545236805
+a0 = 0.04;
+a1 = 0.12;
+a2 = 1;
+b0 = 0.01;
+b1 = 0.7;
+nu1 = 1;
+nu2 = 5;
+betta = 0.5;
+
+l11 = b1 - b0*(nu1 + 2*nu2);
+l12 = b0;
+l13 = 0;
+l21 = -b0*(betta^2 + nu2^2 + 2*nu1*nu2);
+l22 = b1;
+l23 = b0;
+l31 = -b0*nu1*(betta^2 + nu2^2);
+l32 = 0;
+l33 = b1;
+
+c1 = a0*(nu1 + 2*nu2)-a1;
+c2 = a0 * (betta^2 + nu2^2 + 2*nu1*nu2)-a2;
+c3 = a0 * nu1*(betta^2 + nu2^2);
+
+L = [l11 l12 l13; l21 l22 l23; l31 l32 l33];
+C = [c1; c2; c3];
+
+
+%% попытка для нашей
+a0 = I_x;
+a1 = 0;
+a2 = 0;
+b0 = 0.00;
+b1 = 1;
+nu1 = 5;
+nu2 = 100;
+betta = 1.1;
+
+l11 = b1 - b0*(nu1 + 2*nu2);
+l12 = b0;
+l13 = 0;
+l21 = -b0*(betta^2 + nu2^2 + 2*nu1*nu2);
+l22 = b1;
+l23 = b0;
+l31 = -b0*nu1*(betta^2 + nu2^2);
+l32 = 0;
+l33 = b1;
+
+c1 = a0*(nu1 + 2*nu2)-a1;
+c2 = a0 * (betta^2 + nu2^2 + 2*nu1*nu2)-a2;
+c3 = a0 * nu1*(betta^2 + nu2^2);
+
+L = [l11 l12 l13; l21 l22 l23; l31 l32 l33];
+C = [c1; c2; c3];
+
+K = inv(L)*C;
+  K_gamma_D1 =  K(1)
+   K_gamma_P1 = K(2)
+   K_gamma_I1 = K(3)
+
+
+%% Нули и полюса
+
+
+Tf_gamma = tf([0.2899 1.8554 3.9584], [1 19.2 122.88 262.144]) 
+pole(Tf_gamma)
+zero(Tf_gamma)
+
+p = [1 19.2 122.88 262.144];
+q = [0.2899 1.8554 3.9584];
+[quotient remainder] = deconv(p, q)
