@@ -75,9 +75,9 @@ K_psi_P2 = 23.04;%6;
 K_psi_I2 = 0;
 
 %% Англ мои ПИД
-K_phi_D22 = 19.2;    K_theta_D22 = 19.2;    K_psi_D2 = 19.2; 
-K_phi_P22 = 122.88;  K_theta_P22 = 122.88;  K_psi_P2 = 122.88;
-K_phi_I22 = 262.144; K_theta_I22 = 262.144; K_psi_I2 = 262.144;
+K_phi_D22 = 19.2;    K_theta_D22 = 19.2;    K_psi_D22 = 19.2; 
+K_phi_P22 = 122.88;  K_theta_P22 = 122.88;  K_psi_P22 = 122.88;
+K_phi_I22 = 262.144; K_theta_I22 = 262.144; K_psi_I22 = 262.144;
 
 K_phi_D11 = 0.093;    K_theta_D11 = 0.093;    K_psi_D11 = 0.169; 
 K_phi_P11 = 0.5966;   K_theta_P11 = 0.5966;   K_psi_P11 = 1.081;
