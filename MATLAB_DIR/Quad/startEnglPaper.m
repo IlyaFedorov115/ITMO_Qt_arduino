@@ -35,11 +35,11 @@ x_init = 0;
 y_init = 0;
 
 z_init = 0;
-z_d = 0.2;
+z_d = 0.1;
 
 phi_d = 0.2;
-theta_d = -0.1;
-psi_d = 0.1;
+theta_d = -0.1 * -3;
+psi_d = 0.15;
 
 K_z_D1 = 4.42; %  
 K_z_P1 = 11.2; % 
@@ -147,16 +147,16 @@ K_psi_DS = 0.24;
 
 x_iS = 0;
 y_iS = 0;
-z_iS = 1;
+z_iS = 0.0;
 
-phi_iS = deg2rad(10);
-theta_iS = deg2rad(10);
-psi_iS = deg2rad(10);
+phi_iS = 0;   deg2rad(10)
+theta_iS = 0;
+psi_iS = 0;
 
-z_DesS = 0.0;
-phi_DesS = 0.2 * 0;
-theta_DesS = -0.1 * 0;
-psi_DesS = 0.1 * 0;
+z_DesS = 0.1;
+phi_DesS = 0.2;
+theta_DesS = -0.1 * -4;
+psi_DesS = 0.1 * 3;
 
 %%
 % phi/theta PD [0.35, 0.14] - Посчитанные по ПФ для ПД с Ix, Iy, Iz из статьи СТ
