@@ -35,7 +35,7 @@ x_init = 0;
 y_init = 0;
 
 z_init = 0;
-z_d = 0.1;
+z_d = 0.05 * 0;
 
 phi_d = 0.2;
 theta_d = -0.1 * -3;
@@ -155,8 +155,8 @@ psi_iS = 0;
 
 z_DesS = 0.1;
 phi_DesS = 0.2;
-theta_DesS = -0.1 * -4;
-psi_DesS = 0.1 * 3;
+theta_DesS = -0.1 * -3;
+psi_DesS = 0.15;
 
 %%
 % phi/theta PD [0.35, 0.14] - Посчитанные по ПФ для ПД с Ix, Iy, Iz из статьи СТ
